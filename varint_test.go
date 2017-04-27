@@ -9,7 +9,7 @@ func TestVarInt(t *testing.T) {
 	tests := []struct {
 		name   string
 		varInt []byte
-		want   int64
+		want   uint64
 	}{
 		{
 			name:   "1 byte",
@@ -32,15 +32,23 @@ func TestVarInt(t *testing.T) {
 			want:   10000000000000,
 		},
 	}
-	var got int64
+	var got uint64
+	var err error
 	var gotVarInt []byte
+	buf := new(bytes.Buffer)
 	for _, test := range tests {
-		gotVarInt = WriteVarInt(test.want)
+		gotVarInt = Uint64ToBytes(test.want)
 		if bytes.Compare(gotVarInt, test.varInt) != 0 {
 			t.Errorf("%s: varint want %x, got %x", test.name, test.varInt, gotVarInt)
 			continue
 		}
-		got = ReadVarInt(test.varInt)
+		buf.Reset()
+		buf.Write(test.varInt)
+		got, err = ReadVarInt(buf)
+		if err != nil {
+			t.Errorf("%s: %s", test.name, err)
+			continue
+		}
 		if test.want != got {
 			t.Errorf("%s: want %d, got %d", test.name, test.want, got)
 			continue
