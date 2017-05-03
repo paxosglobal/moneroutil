@@ -69,6 +69,7 @@ type txInToKey struct {
 
 type TxInSerializer interface {
 	TxInSerialize() []byte
+	MixinLen() int
 }
 
 type TxOut struct {
@@ -86,10 +87,7 @@ type TransactionPrefix struct {
 
 type Transaction struct {
 	TransactionPrefix
-	signatures     []Signature
-	ringSignatures []RingSignature
-	hash           []byte
-	blobSize       uint32
+	signatures [][]*Signature
 }
 
 func (h *Hash) Serialize() (result []byte) {
@@ -151,11 +149,19 @@ func (t *txInGen) TxInSerialize() (result []byte) {
 	return
 }
 
+func (t *txInGen) MixinLen() int {
+	return 0
+}
+
 func (t *txInToScript) TxInSerialize() (result []byte) {
 	result = append([]byte{txInToScriptMarker}, t.prev...)
 	result = append(result, Uint64ToBytes(t.prevOut)...)
 	result = append(result, t.sigSet...)
 	return
+}
+
+func (t *txInToScript) MixinLen() int {
+	return 0
 }
 
 func (t *txInToScriptHash) TxInSerialize() (result []byte) {
@@ -164,6 +170,10 @@ func (t *txInToScriptHash) TxInSerialize() (result []byte) {
 	result = append(result, t.script...)
 	result = append(result, t.sigSet...)
 	return
+}
+
+func (t *txInToScriptHash) MixinLen() int {
+	return 0
 }
 
 func (t *txInToKey) TxInSerialize() (result []byte) {
@@ -176,12 +186,16 @@ func (t *txInToKey) TxInSerialize() (result []byte) {
 	return
 }
 
+func (t *txInToKey) MixinLen() int {
+	return len(t.keyOffsets)
+}
+
 func (t *TxOut) Serialize() (result []byte) {
 	result = append(Uint64ToBytes(t.amount), t.target.TargetSerialize()...)
 	return
 }
 
-func (t *TransactionPrefix) Serialize() (result []byte) {
+func (t *TransactionPrefix) SerializePrefix() (result []byte) {
 	result = append(Uint64ToBytes(uint64(t.version)), Uint64ToBytes(t.unlockTime)...)
 	result = append(result, Uint64ToBytes(uint64(len(t.vin)))...)
 	for _, txIn := range t.vin {
@@ -193,6 +207,16 @@ func (t *TransactionPrefix) Serialize() (result []byte) {
 	}
 	result = append(result, Uint64ToBytes(uint64(len(t.extra)))...)
 	result = append(result, t.extra...)
+	return
+}
+
+func (t *Transaction) Serialize() (result []byte) {
+	result = t.SerializePrefix()
+	for i := 0; i < len(t.signatures); i++ {
+		for j := 0; j < len(t.signatures[i]); j++ {
+			result = append(result, t.signatures[i][j].Serialize()...)
+		}
+	}
 	return
 }
 
@@ -325,8 +349,42 @@ func ParseExtra(buf *bytes.Buffer) (extra []byte, err error) {
 	return
 }
 
-func ParseTransaction(buf *bytes.Buffer) (transaction *TransactionPrefix, err error) {
-	t := new(TransactionPrefix)
+func ParseSignature(buf *bytes.Buffer) (signature *Signature, err error) {
+	s := new(Signature)
+	c := buf.Next(PubKeyLength)
+	if len(c) != PubKeyLength {
+		err = errors.New("Not enough bytes for signature c")
+		return
+	}
+	copy(s.c[:], c)
+	r := buf.Next(PubKeyLength)
+	if len(r) != PubKeyLength {
+		err = errors.New("Not enough bytes for signature r")
+		return
+	}
+	copy(s.r[:], r)
+	signature = s
+	return
+}
+
+func ParseSignatures(mixinLengths []int, buf *bytes.Buffer) (signatures [][]*Signature, err error) {
+	// mixinLengths is the number of mixins at each input position
+	sigs := make([][]*Signature, len(mixinLengths), len(mixinLengths))
+	for i, nMixin := range mixinLengths {
+		sigs[i] = make([]*Signature, nMixin, nMixin)
+		for j := 0; j < nMixin; j++ {
+			sigs[i][j], err = ParseSignature(buf)
+			if err != nil {
+				return
+			}
+		}
+	}
+	signatures = sigs
+	return
+}
+
+func ParseTransaction(buf *bytes.Buffer) (transaction *Transaction, err error) {
+	t := new(Transaction)
 	version, err := ReadVarInt(buf)
 	if err != nil {
 		return
@@ -340,11 +398,16 @@ func ParseTransaction(buf *bytes.Buffer) (transaction *TransactionPrefix, err er
 	if err != nil {
 		return
 	}
+	var mixinLengths []int
 	t.vin = make([]TxInSerializer, int(numInputs), int(numInputs))
 	for i := 0; i < int(numInputs); i++ {
 		t.vin[i], err = ParseTxIn(buf)
 		if err != nil {
 			return
+		}
+		mixinLen := t.vin[i].MixinLen()
+		if mixinLen > 0 {
+			mixinLengths = append(mixinLengths, mixinLen)
 		}
 	}
 	numOutputs, err := ReadVarInt(buf)
@@ -360,6 +423,14 @@ func ParseTransaction(buf *bytes.Buffer) (transaction *TransactionPrefix, err er
 	}
 	t.extra, err = ParseExtra(buf)
 	if err != nil {
+		return
+	}
+	t.signatures, err = ParseSignatures(mixinLengths, buf)
+	if err != nil {
+		return
+	}
+	if buf.Len() != 0 {
+		err = errors.New("Buffer has extra data")
 		return
 	}
 	transaction = t

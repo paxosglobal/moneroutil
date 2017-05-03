@@ -157,6 +157,7 @@ func TestTxInToKeyTransaction(t *testing.T) {
 		outputSum      uint64
 		inputKeyImages []string
 		outputs        []string
+		mixinLength    int
 	}{
 		{
 			name:      "50 inputs from block 58272",
@@ -225,6 +226,7 @@ func TestTxInToKeyTransaction(t *testing.T) {
 				"02bfae014409db5bbb21cfe04224b42a6476697df719ecc8b0d8ac65245c05482a",
 				"022898f95d657d0fb76ebf551bea861d63657d71d53887df7f2aaa455c46488aaa",
 			},
+			mixinLength: 11,
 		},
 	}
 	for _, test := range tests {
@@ -285,8 +287,20 @@ func TestTxInToKeyTransaction(t *testing.T) {
 				t.Errorf("%s: output %d: want %x, got %x", test.name, i, wantOut, gotOut)
 			}
 		}
+		wantLen = len(test.inputKeyImages)
+		gotLen = len(transaction.signatures)
+		if wantLen != gotLen {
+			t.Errorf("%s: signature len: want %d, got %d", test.name, wantLen, gotLen)
+		}
+		for i, mixins := range transaction.signatures {
+			wantLen = test.mixinLength
+			gotLen = len(mixins)
+			if wantLen != gotLen {
+				t.Errorf("%s: mixin len for %d: want %d, got %d", test.name, i, wantLen, gotLen)
+			}
+		}
 		gotSerialized := transaction.Serialize()
-		wantSerialized := serializedTx[:len(gotSerialized)]
+		wantSerialized := serializedTx
 		if bytes.Compare(wantSerialized, gotSerialized) != 0 {
 			t.Errorf("%s: serialized: want %x, got %x", test.name, wantSerialized, gotSerialized)
 		}
