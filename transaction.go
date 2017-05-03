@@ -39,8 +39,8 @@ type txOutToKey struct {
 	key PubKey
 }
 
-type TxOutTargeter interface {
-	TxOutTarget() []byte
+type TxOutTargetSerializer interface {
+	TargetSerialize() []byte
 	String() string
 }
 
@@ -73,7 +73,7 @@ type TxInMaker interface {
 
 type TxOut struct {
 	amount uint64
-	target TxOutTargeter
+	target TxOutTargetSerializer
 }
 
 type TransactionPrefix struct {
@@ -109,7 +109,7 @@ func (s *Signature) Serialize() (result []byte) {
 	return
 }
 
-func (t *txOutToScript) TxOutTarget() (result []byte) {
+func (t *txOutToScript) TargetSerialize() (result []byte) {
 	result = []byte{txInToScriptMarker}
 	for i, pubkey := range t.pubKeys {
 		if i != 0 {
@@ -126,7 +126,7 @@ func (t *txOutToScript) String() (result string) {
 	return
 }
 
-func (t *txOutToScriptHash) TxOutTarget() (result []byte) {
+func (t *txOutToScriptHash) TargetSerialize() (result []byte) {
 	result = append([]byte{txInToScriptHashMarker}, t.hash.Serialize()...)
 	return
 }
@@ -136,7 +136,7 @@ func (t *txOutToScriptHash) String() (result string) {
 	return
 }
 
-func (t *txOutToKey) TxOutTarget() (result []byte) {
+func (t *txOutToKey) TargetSerialize() (result []byte) {
 	result = append([]byte{txInToKeyMarker}, t.key.Serialize()...)
 	return
 }
@@ -176,7 +176,7 @@ func (t *txInToKey) TxIn() (result []byte) {
 }
 
 func (t *TxOut) Serialize() (result []byte) {
-	result = append(Uint64ToBytes(t.amount), t.target.TxOutTarget()...)
+	result = append(Uint64ToBytes(t.amount), t.target.TargetSerialize()...)
 	return
 }
 
