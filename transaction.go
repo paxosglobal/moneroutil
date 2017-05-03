@@ -67,8 +67,8 @@ type txInToKey struct {
 	keyImage   PubKey
 }
 
-type TxInMaker interface {
-	TxIn() []byte
+type TxInSerializer interface {
+	TxInSerialize() []byte
 }
 
 type TxOut struct {
@@ -79,7 +79,7 @@ type TxOut struct {
 type TransactionPrefix struct {
 	version    uint32
 	unlockTime uint64
-	vin        []TxInMaker
+	vin        []TxInSerializer
 	vout       []*TxOut
 	extra      []byte
 }
@@ -146,19 +146,19 @@ func (t *txOutToKey) String() (result string) {
 	return
 }
 
-func (t *txInGen) TxIn() (result []byte) {
+func (t *txInGen) TxInSerialize() (result []byte) {
 	result = append([]byte{txInGenMarker}, Uint64ToBytes(t.height)...)
 	return
 }
 
-func (t *txInToScript) TxIn() (result []byte) {
+func (t *txInToScript) TxInSerialize() (result []byte) {
 	result = append([]byte{txInToScriptMarker}, t.prev...)
 	result = append(result, Uint64ToBytes(t.prevOut)...)
 	result = append(result, t.sigSet...)
 	return
 }
 
-func (t *txInToScriptHash) TxIn() (result []byte) {
+func (t *txInToScriptHash) TxInSerialize() (result []byte) {
 	result = append([]byte{txInToScriptHashMarker}, t.prev.Serialize()...)
 	result = append(result, Uint64ToBytes(t.prevOut)...)
 	result = append(result, t.script...)
@@ -166,8 +166,9 @@ func (t *txInToScriptHash) TxIn() (result []byte) {
 	return
 }
 
-func (t *txInToKey) TxIn() (result []byte) {
+func (t *txInToKey) TxInSerialize() (result []byte) {
 	result = append([]byte{txInToKeyMarker}, Uint64ToBytes(t.amount)...)
+	result = append(result, Uint64ToBytes(uint64(len(t.keyOffsets)))...)
 	for _, keyOffset := range t.keyOffsets {
 		result = append(result, Uint64ToBytes(keyOffset)...)
 	}
@@ -184,7 +185,7 @@ func (t *TransactionPrefix) Serialize() (result []byte) {
 	result = append(Uint64ToBytes(uint64(t.version)), Uint64ToBytes(t.unlockTime)...)
 	result = append(result, Uint64ToBytes(uint64(len(t.vin)))...)
 	for _, txIn := range t.vin {
-		result = append(result, txIn.TxIn()...)
+		result = append(result, txIn.TxInSerialize()...)
 	}
 	result = append(result, Uint64ToBytes(uint64(len(t.vout)))...)
 	for _, txOut := range t.vout {
@@ -216,11 +217,33 @@ func ParseTxInToScriptHash(buf *bytes.Buffer) (txIn *txInToScriptHash, err error
 }
 
 func ParseTxInToKey(buf *bytes.Buffer) (txIn *txInToKey, err error) {
-	err = errors.New("Unimplemented")
+	t := new(txInToKey)
+	t.amount, err = ReadVarInt(buf)
+	if err != nil {
+		return
+	}
+	keyOffsetLen, err := ReadVarInt(buf)
+	if err != nil {
+		return
+	}
+	t.keyOffsets = make([]uint64, keyOffsetLen, keyOffsetLen)
+	for i := 0; i < int(keyOffsetLen); i++ {
+		t.keyOffsets[i], err = ReadVarInt(buf)
+		if err != nil {
+			return
+		}
+	}
+	pubKey := buf.Next(PubKeyLength)
+	if len(pubKey) != PubKeyLength {
+		err = errors.New("Buffer not long enough for public key")
+		return
+	}
+	copy(t.keyImage[:], pubKey)
+	txIn = t
 	return
 }
 
-func ParseTxIn(buf *bytes.Buffer) (txIn TxInMaker, err error) {
+func ParseTxIn(buf *bytes.Buffer) (txIn TxInSerializer, err error) {
 	marker, err := buf.ReadByte()
 	if err != nil {
 		return
@@ -317,7 +340,7 @@ func ParseTransaction(buf *bytes.Buffer) (transaction *TransactionPrefix, err er
 	if err != nil {
 		return
 	}
-	t.vin = make([]TxInMaker, int(numInputs), int(numInputs))
+	t.vin = make([]TxInSerializer, int(numInputs), int(numInputs))
 	for i := 0; i < int(numInputs); i++ {
 		t.vin[i], err = ParseTxIn(buf)
 		if err != nil {
