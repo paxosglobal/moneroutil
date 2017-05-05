@@ -14,17 +14,7 @@ const (
 	txOutToScriptMarker     = 0
 	txOutToScriptHashMarker = 1
 	txOutToKeyMarker        = 2
-
-	HashLength   = 32
-	PubKeyLength = 32
 )
-
-type Hash [HashLength]byte
-type PubKey [PubKeyLength]byte
-type Signature struct {
-	c [PubKeyLength]byte
-	r [PubKeyLength]byte
-}
 
 type txOutToScript struct {
 	pubKeys []PubKey
@@ -87,7 +77,7 @@ type TransactionPrefix struct {
 
 type Transaction struct {
 	TransactionPrefix
-	signatures [][]*Signature
+	signatures []RingSignature
 }
 
 func (h *Hash) Serialize() (result []byte) {
@@ -97,13 +87,6 @@ func (h *Hash) Serialize() (result []byte) {
 
 func (p *PubKey) Serialize() (result []byte) {
 	result = p[:]
-	return
-}
-
-func (s *Signature) Serialize() (result []byte) {
-	result = make([]byte, 64)
-	copy(result, s.c[:])
-	copy(result[32:64], s.r[:])
 	return
 }
 
@@ -207,6 +190,18 @@ func (t *TransactionPrefix) SerializePrefix() (result []byte) {
 	}
 	result = append(result, Uint64ToBytes(uint64(len(t.extra)))...)
 	result = append(result, t.extra...)
+	return
+}
+
+func (t *TransactionPrefix) PrefixHash() (hash Hash) {
+	hash = Keccak256(t.SerializePrefix())
+	return
+}
+
+func (t *TransactionPrefix) OutputSum() (sum uint64) {
+	for _, output := range t.vout {
+		sum += output.amount
+	}
 	return
 }
 
@@ -349,40 +344,6 @@ func ParseExtra(buf *bytes.Buffer) (extra []byte, err error) {
 	return
 }
 
-func ParseSignature(buf *bytes.Buffer) (signature *Signature, err error) {
-	s := new(Signature)
-	c := buf.Next(PubKeyLength)
-	if len(c) != PubKeyLength {
-		err = errors.New("Not enough bytes for signature c")
-		return
-	}
-	copy(s.c[:], c)
-	r := buf.Next(PubKeyLength)
-	if len(r) != PubKeyLength {
-		err = errors.New("Not enough bytes for signature r")
-		return
-	}
-	copy(s.r[:], r)
-	signature = s
-	return
-}
-
-func ParseSignatures(mixinLengths []int, buf *bytes.Buffer) (signatures [][]*Signature, err error) {
-	// mixinLengths is the number of mixins at each input position
-	sigs := make([][]*Signature, len(mixinLengths), len(mixinLengths))
-	for i, nMixin := range mixinLengths {
-		sigs[i] = make([]*Signature, nMixin, nMixin)
-		for j := 0; j < nMixin; j++ {
-			sigs[i][j], err = ParseSignature(buf)
-			if err != nil {
-				return
-			}
-		}
-	}
-	signatures = sigs
-	return
-}
-
 func ParseTransaction(buf *bytes.Buffer) (transaction *Transaction, err error) {
 	t := new(Transaction)
 	version, err := ReadVarInt(buf)
@@ -434,12 +395,5 @@ func ParseTransaction(buf *bytes.Buffer) (transaction *Transaction, err error) {
 		return
 	}
 	transaction = t
-	return
-}
-
-func (t *TransactionPrefix) OutputSum() (sum uint64) {
-	for _, output := range t.vout {
-		sum += output.amount
-	}
 	return
 }

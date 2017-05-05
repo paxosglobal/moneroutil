@@ -98,7 +98,7 @@ func TestCoinbaseTransaction(t *testing.T) {
 		serializedTx, _ := hex.DecodeString(test.txHex)
 		expectedHash, _ := hex.DecodeString(test.hashHex)
 		hash := Keccak256(serializedTx)
-		if bytes.Compare(expectedHash, hash) != 0 {
+		if bytes.Compare(expectedHash, hash[:]) != 0 {
 			t.Errorf("%s: want %x, got %x", test.name, expectedHash, hash)
 		}
 		buffer := new(bytes.Buffer)
@@ -270,7 +270,7 @@ func TestTxInToKeyTransaction(t *testing.T) {
 		serializedTx, _ := hex.DecodeString(test.txHex)
 		expectedHash, _ := hex.DecodeString(test.hashHex)
 		hash := Keccak256(serializedTx)
-		if bytes.Compare(expectedHash, hash) != 0 {
+		if bytes.Compare(expectedHash, hash[:]) != 0 {
 			t.Errorf("%s: want %x, got %x", test.name, expectedHash, hash)
 		}
 		buffer := new(bytes.Buffer)

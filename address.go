@@ -12,8 +12,8 @@ type Address struct {
 
 func (a *Address) Base58() (result string) {
 	prefix := []byte{byte(a.network)}
-	checksum := Checksum(prefix, a.spendingKey, a.viewingKey)
-	result = EncodeMoneroBase58(prefix, a.spendingKey, a.viewingKey, checksum)
+	checksum := GetChecksum(prefix, a.spendingKey, a.viewingKey)
+	result = EncodeMoneroBase58(prefix, a.spendingKey, a.viewingKey, checksum[:])
 	return
 }
 
@@ -23,8 +23,8 @@ func NewAddress(address string) (result *Address, err string) {
 		err = "Address is the wrong length"
 		return
 	}
-	checksum := Checksum(raw[:65])
-	if bytes.Compare(checksum, raw[65:]) != 0 {
+	checksum := GetChecksum(raw[:65])
+	if bytes.Compare(checksum[:], raw[65:]) != 0 {
 		err = "Checksum does not validate"
 		return
 	}
