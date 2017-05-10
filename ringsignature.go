@@ -2,7 +2,6 @@ package moneroutil
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/paxos-bankchain/ed25519/edwards25519"
@@ -38,13 +37,13 @@ func ParseSignature(buf *bytes.Buffer) (result *RingSignatureElement, err error)
 	s := new(RingSignatureElement)
 	c := buf.Next(PubKeyLength)
 	if len(c) != PubKeyLength {
-		err = errors.New("Not enough bytes for signature c")
+		err = fmt.Errorf("Not enough bytes for signature c")
 		return
 	}
 	copy(s.c[:], c)
 	r := buf.Next(PubKeyLength)
 	if len(r) != PubKeyLength {
-		err = errors.New("Not enough bytes for signature r")
+		err = fmt.Errorf("Not enough bytes for signature r")
 		return
 	}
 	copy(s.r[:], r)
@@ -82,6 +81,12 @@ func HashToEC(pk PubKey, r *edwards25519.ExtendedGroupElement) {
 	r.ToBytes(&tmp)
 }
 
+func HashToScalar(data ...[]byte) (result [32]byte) {
+	result = Keccak256(data...)
+	edwards25519.ScReduce32(&result)
+	return
+}
+
 func VerifySignature(prefixHash Hash, keyImage PubKey, pubKeys []PubKey, ringSignature RingSignature) (result bool) {
 	keyImageGe := new(edwards25519.ExtendedGroupElement)
 	keyImageBytes := [32]byte(keyImage)
@@ -109,8 +114,7 @@ func VerifySignature(prefixHash Hash, keyImage PubKey, pubKeys []PubKey, ringSig
 		toHash = append(toHash, tmpPBytes[:]...)
 		edwards25519.ScAdd(&sum, &sum, &signature.c)
 	}
-	tmpS = Keccak256(toHash)
-	fmt.Printf("%x\n%x\n", tmpS, sum)
+	tmpS = HashToScalar(toHash)
 	edwards25519.ScSub(&sum, &tmpS, &sum)
 	result = edwards25519.ScIsZero(&sum)
 	return
