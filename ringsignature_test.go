@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/paxos-bankchain/ed25519/edwards25519"
 )
 
 func TestHashToScalar(t *testing.T) {
@@ -761,8 +763,1052 @@ func TestHashToScalar(t *testing.T) {
 		toHash, _ := hex.DecodeString(test.hashHex)
 		want := HexToBytes(test.scalarHex)
 		got := HashToScalar(toHash)
-		if want == got {
+		if want != got {
 			t.Errorf("%x, want %x, got %x", toHash, want, got)
+		}
+	}
+}
+
+func TestHashToEC(t *testing.T) {
+	tests := []struct {
+		pubkeyHex   string
+		extendedHex string
+	}{
+		{
+			pubkeyHex:   "da66e9ba613919dec28ef367a125bb310d6d83fb9052e71034164b6dc4f392d0",
+			extendedHex: "52b3f38753b4e13b74624862e253072cf12f745d43fcfafbe8c217701a6e5875",
+		},
+		{
+			pubkeyHex:   "a7fbdeeccb597c2d5fdaf2ea2e10cbfcd26b5740903e7f6d46bcbf9a90384fc6",
+			extendedHex: "f055ba2d0d9828ce2e203d9896bfda494d7830e7e3a27fa27d5eaa825a79a19c",
+		},
+		{
+			pubkeyHex:   "ed6e6579368caba2cc4851672972e949c0ee586fee4d6d6a9476d4a908f64070",
+			extendedHex: "da3ceda9a2ef6316bf9272566e6dffd785ac71f57855c0202f422bbb86af4ec0",
+		},
+		{
+			pubkeyHex:   "9ae78e5620f1c4e6b29d03da006869465b3b16dae87ab0a51f4e1b74bc8aa48b",
+			extendedHex: "72d8720da66f797f55fbb7fa538af0b4a4f5930c8289c991472c37dc5ec16853",
+		},
+		{
+			pubkeyHex:   "ab49eb4834d24db7f479753217b763f70604ecb79ed37e6c788528720f424e5b",
+			extendedHex: "45914ba926a1a22c8146459c7f050a51ef5f560f5b74bae436b93a379866e6b8",
+		},
+		{
+			pubkeyHex:   "5b79158ef2341180b8327b976efddbf364620b7e88d2e0707fa56f3b902c34b3",
+			extendedHex: "eac991dcbba39cb3bd166906ab48e2c3c3f4cd289a05e1c188486d348ede7c2e",
+		},
+		{
+			pubkeyHex:   "f21daa7896c81d3a7a2e9df721035d3c3902fe546c9d739d0c334ed894fb1d21",
+			extendedHex: "a6bedc5ffcc867d0c13a88a03360c8c83a9e4ddf339851bd3768c53a124378ec",
+		},
+		{
+			pubkeyHex:   "3dae79aaca1abe6aecea7b0d38646c6b013d40053c7cdde2bed094497d925d2b",
+			extendedHex: "1a442546a35860a4ab697a36b158ded8e001bbfe20aef1c63e2840e87485c613",
+		},
+		{
+			pubkeyHex:   "3d219463a55c24ac6f55706a6e46ade3fcd1edc87bade7b967129372036aca63",
+			extendedHex: "b252922ab64e32968735b8ade861445aa8dc02b763bd249bff121d10829f7c52",
+		},
+		{
+			pubkeyHex:   "bc5db69aced2b3197398eaf7cf60fd782379874b5ca27cb21bd23692c3c885cc",
+			extendedHex: "ae072a43f78a0f29dc9822ae5e70865bbd151236a6d7fe4ae3e8f8961e19b0e5",
+		},
+		{
+			pubkeyHex:   "98a6ed760b225976f8ada0579540e35da643089656695b5d0b8c7265a37e2342",
+			extendedHex: "6a99dbfa8ead6228910498cc3ff3fb18cb8627c5735e4b8657da846c16d2dcad",
+		},
+		{
+			pubkeyHex:   "e9cdc9fd9425a4a2389a5d60f76a2d839f0afbf66330f079a88fe23d73eae930",
+			extendedHex: "8aa518d091928668f3ca40e71e14b2698f6cae097b8120d7f6ae9afba8fd3d60",
+		},
+		{
+			pubkeyHex:   "a50c026c0af2f9f9884c2e9b8464724ac83bef546fec2c86b7de0880980d24fb",
+			extendedHex: "b07433f8df39da2453a1e13fd413123a158feae602d822b724d42ef6c8e443bf",
+		},
+		{
+			pubkeyHex:   "bf180e20d160fa23ccfa6993febe22b920160efc5a9614245f1a3a360076e87a",
+			extendedHex: "9d6454ff69779ce978ea5fb3be88576dc8feaedf151e93b70065f92505f2e800",
+		},
+		{
+			pubkeyHex:   "b2b64dfeb1d58c6afbf5a56d8c0c42012175ebb4b7df30f26a67b66be8c34614",
+			extendedHex: "0523b22e7f220c939b604a15780abc5816709b91b81d9ee1541d44bd2586bbd8",
+		},
+		{
+			pubkeyHex:   "463fc877f4279740020d10652c950f088ebdebeae34aa7a366c92c9c8773f63a",
+			extendedHex: "daa5fa72e70c4d3af407b8f2f3364708029b2d4863bbdde54bd67bd08db0fcad",
+		},
+		{
+			pubkeyHex:   "721842f3809982e7b96a806ae1f162d98ae6911d476307ad1e4f24522fd26f55",
+			extendedHex: "4397c300a8cfcb42e7cc310bc975dc975ec2d191eaa7e0462998eb2830c34126",
+		},
+		{
+			pubkeyHex:   "384da8d9b83972af8cbefc2da5efc744037c8ef40efa4b3bacc3238a6232963d",
+			extendedHex: "3c80f107e6868f73ef600ab9229a3f4bbe24f4adce52e6ab3a66d5d510e0670d",
+		},
+		{
+			pubkeyHex:   "e26f8adef5b6fe5bb01466bff0455ca23fda07e200133697b3b6430ca3332bde",
+			extendedHex: "e262a58bcc1f8baf1980e00d5d40ba00803690174d14fb4c0f608429ce3df773",
+		},
+		{
+			pubkeyHex:   "6e275b4ea4f085a5d3151aa08cf16a8c60b078e70be7ce5dac75b5d7b0eebe7c",
+			extendedHex: "cb21b5a7744b4fcdc92ead4be0b04bcb9145e7bb4b06eff3bb2f0fe429b85108",
+		},
+		{
+			pubkeyHex:   "a0dde4561ad9daa796d9cd8a3c34fd41687cee76d128bf2e2252466e3ef3b068",
+			extendedHex: "79a2eb06bb7647f5d0aae5da7cf2e2b2d2ce890f25f2b1f81bfc5fef8c87a7d3",
+		},
+		{
+			pubkeyHex:   "dbaf63830e037b4c329969d1d85e58cb6c4f56014fd08eb38219bd20031ae27c",
+			extendedHex: "079c93ae27cd98075a487fd3f7457ad2fb57cdf12ec8651fedd944d765d07549",
+		},
+		{
+			pubkeyHex:   "1e87ba8a9acf96948bc199ae55c83ab3277be152c6d0b1d68a07955768d81171",
+			extendedHex: "5c6339f834116791f9ea22fcc3970346aaeddacf13fbd0a7d4005fbd469492ca",
+		},
+		{
+			pubkeyHex:   "5a544088e63ddf5b9f444ed75a75bc9315c4c50439522f06b4823ecaf5e8a08d",
+			extendedHex: "e95ca0730d57c6469be3a0f3c94382f8490257e2e546de86c650bdbc6482eaee",
+		},
+		{
+			pubkeyHex:   "e4e06d92ebb036a5e4bb547dbaa43fd70db3929eef2702649455c86d7e59aa46",
+			extendedHex: "e26210ff8ee28e24ef2613df40aa8a874b5e3c1d07ae14acc59220615aa334dc",
+		},
+		{
+			pubkeyHex:   "5793b8b32dcc0f204501647f2976493c4f8f1fa5132315226f99f29a5a6fdfce",
+			extendedHex: "656e390086906d99852c9696e831f62cb56fc8f85f9a5c936c327f23c7faf4fe",
+		},
+		{
+			pubkeyHex:   "84f56fa4d7f12e0efd48b1f7c81c15d6e3843ebb419f4a27ec97028d4f9da19e",
+			extendedHex: "0cbd4f0cd288e1e071cce800877de6aef97b63fff867424a4f2b2bab25602608",
+		},
+		{
+			pubkeyHex:   "242683ddf0a9fc55f6585de3aa64ea17c9c544896ff7677cd82c98f833bdf2ca",
+			extendedHex: "38c36d52314549213df7c7201ab7749a4724cbea92812f583bb48cabc20816ad",
+		},
+		{
+			pubkeyHex:   "a93ee320dc030aa382168c2eb6d75fce6e5a63a81f15632d514c6de8a7cfa5ee",
+			extendedHex: "bd0a2facaa95bc95215a94be21996e46f789ee8beb38e75a1173b75fc686c505",
+		},
+		{
+			pubkeyHex:   "e36136601d84475d25c3f14efe030363d646658937a8a8a19a812d5e6deb5944",
+			extendedHex: "2fb93d78fae299c9f6b22346acfb829796ee7a47ec71db5456d8201bec6c35a3",
+		},
+		{
+			pubkeyHex:   "ba4b67d3d387c66baa4a32ec8b1db7681087e85076e71bab10036388c3aeb011",
+			extendedHex: "cc01329ce56f963bf444a124751c45b2c779ccb6dea16ca05251baca246b5401",
+		},
+		{
+			pubkeyHex:   "3fbc91896a2585154d6f7094c5ab9c487e29a27951c226eec1235f618e44946b",
+			extendedHex: "7d983acbb901bf5497d0708392e5e742ec8c8036cbb0d03403e9929da8cc85a7",
+		},
+		{
+			pubkeyHex:   "a2da289fed650e9901f69a5f33535eb47c6bd07798633cbf6c00ce3172df76ac",
+			extendedHex: "dca8a4d30ec2d657fefd0dba9c1c5fd45a79f665048b3cf72ac2c3b7363da1ac",
+		},
+		{
+			pubkeyHex:   "99025d2d493f768e273ed66cacd3a5b392761e6bd158ca09c8fba84631ea1534",
+			extendedHex: "7ef5af79ab155ab7e1770a47fcd7f194aca43d79ec6e303c7ce18c6a20279b04",
+		},
+		{
+			pubkeyHex:   "3cf1d01d0b70fb31f2a2f979c1bae812381430f474247d0b018167f2a2cd9a9f",
+			extendedHex: "7c53d799ec938a21bb305a6b5ca0a7a355fa9a68b01d289c4f22b36ce3738f95",
+		},
+		{
+			pubkeyHex:   "639c421b49636b2a1f8416c5d6e64425fe51e3b52584c265502379189895668e",
+			extendedHex: "0b47216ae5e6e03667143a6cf8894d9d73e3152c64fb455631d81a424410e871",
+		},
+		{
+			pubkeyHex:   "4ccf2c973348b7cc4b14f846f9bfcdcb959b7429accf6dede96248946841d990",
+			extendedHex: "7fd41f5b97ba42ed03947dd953f8e69770c92cc34b16236edad7ab3c78cbbb2e",
+		},
+		{
+			pubkeyHex:   "f76ae09fff537f8919fd1a43ff9b8922b6a77e9e30791c82cf2c4b8acb51363e",
+			extendedHex: "8e2c6bf86461ad2c230c496ee3896da33c11cc020fd4c70faa3645b329049234",
+		},
+		{
+			pubkeyHex:   "98932da7450f15db6c1eef78359904915c31c2aa7572366ec8855180edb81e3a",
+			extendedHex: "86180adddfac0b4d1fb41d58e98445dde1da605b380d392e9386bd445f1d821c",
+		},
+		{
+			pubkeyHex:   "ab26a1660988ec7aba91fc01f7aa9a157bbc12927f5b197062b922a5c0c7f8dd",
+			extendedHex: "2c44a43eda0d0aad055f18333e761f2f2ec11c585ec7339081c19266af918e4f",
+		},
+		{
+			pubkeyHex:   "4465d0c1b4930cc718252efd87d11d04162d2a321b9b850c4a19a6acdfca24f4",
+			extendedHex: "b03806287d804188a4d679a0ecee66f399d7bdc3bd1494f9b2b0772bbb5a034f",
+		},
+		{
+			pubkeyHex:   "0f2a7867864ed00e5c40082df0a0b031c89fa5f978d9beb2fde75153f51cfb75",
+			extendedHex: "5c471e1b118ef9d76c93aec70e0578f46e8db1d55affd447c1f64c0ad9a5caa5",
+		},
+		{
+			pubkeyHex:   "5c2808c07d8175f332cae050ce13bec4254870d76abff68faf34b0b8d3ad5000",
+			extendedHex: "eeff1d9a5aa428b7aecc575e63dde17294072eb246568493e1ed88ce5c95b779",
+		},
+		{
+			pubkeyHex:   "36300a21601fad00d00da45e27b36c11923b857f97e50303bd01f21998eaef95",
+			extendedHex: "b33b077871e6f5dad8ff6bc621c1b6dedcf700777d996c8c02d73f7297108b7e",
+		},
+		{
+			pubkeyHex:   "9e1afb76d6c480816d2cedd7f2ab08a36c309efaa3764dcdb51bad6049683805",
+			extendedHex: "4cd96ba7b543b1a224b8670bf20b3733e3910711d32456d3e58e920215788adf",
+		},
+		{
+			pubkeyHex:   "685f152704664495459b76c81567a4b571e8b307dd0e3c9b08ee95651a006047",
+			extendedHex: "80dd6b637580cb3be76025867f1525852b65a7a66066993fda3af7eb187dc1a5",
+		},
+		{
+			pubkeyHex:   "0b216444391a1163c14f7b27f9135e9747978c0e426dce1fa65c657f3e9146be",
+			extendedHex: "021259695a6854a4a03e8c74d09ab9630a401bfca06172a733fe122f01af90b4",
+		},
+		{
+			pubkeyHex:   "cfcb35e98f71226c3558eaa9cf620db5ae207ece081ab13ddea4b1f122850a5a",
+			extendedHex: "46763d2742e2cdffe80bb3d056f4d3a1565aa83f19aab0a1f89e54ad81ae0814",
+		},
+		{
+			pubkeyHex:   "07e7292da8cdcdb58ee30c3fa16f1d609e9b3b1110dd6fa9b2cc18f4103a1c12",
+			extendedHex: "fe949ca251ac66f13a8925ae624a09cdbf6696d3c110442338d37700536e8ec7",
+		},
+		{
+			pubkeyHex:   "813bc7e3749e658190cf2a4e358bc07a6671f262e2c4eef9f44c66066a72e6a7",
+			extendedHex: "6b92fbda984bd0e6f4af7a5e04c2b66b6f0f9d197a9694362a8556e5b7439f8a",
+		},
+		{
+			pubkeyHex:   "89c50a1e5497156e0fae20d99f5e33e330362b962c9ca00eaf084fe91aaec71d",
+			extendedHex: "ef36cb75eb95fb761a8fa8c376e9c4447bcd61421250f7a711bd289e6ed78a9b",
+		},
+		{
+			pubkeyHex:   "d9bd9ff2dd807eb25de7c5de865dbc43cce2466389cedbc92b90aab0eb014f81",
+			extendedHex: "30104771ff961cd1861cd053689feab888c57b8a4a2e3989646ea7dea40f3c04",
+		},
+		{
+			pubkeyHex:   "b8c837501b6ca3e118db9848717c847c062bf0ebeca5a7c211726c1426878af5",
+			extendedHex: "19a1e204b4a32ce9cccf5d96a541eb76a78789dceaf4fe69964e58ff96c29b63",
+		},
+		{
+			pubkeyHex:   "84376c5350a42c07ac9f96e8d5c35a8c7f62c639a1834b09e4331b5962ecace8",
+			extendedHex: "ba1e4437d5048bd1294eadc502092eafc470b99fde82649e84a52225e68e88f2",
+		},
+		{
+			pubkeyHex:   "a3345e4a4cfc369bf0e7d11f49aed0d2a6ded00e3ff8c7605db9a919cf730640",
+			extendedHex: "0d318705c16e943c0fdcde134aaf6e4ccce9f3d9161d001861656fc7ea77a0b1",
+		},
+		{
+			pubkeyHex:   "3c994dfb9c71e4f401e65fd552dc9f49885f88b8b3588e24e1d2e9b8870ffab1",
+			extendedHex: "984157de5d7c2c4b43b2bffea171809165d7bb442baea88e83b27f839ebdb939",
+		},
+		{
+			pubkeyHex:   "153674c1c1b18a646f564af77c5bd7de452dc3f3e1e2326bfe9c57745b69ec5c",
+			extendedHex: "e9a4a1e225ae472d1b3168c99f8ba1943ad2ed84ef29598f3f96314f22db9ef2",
+		},
+		{
+			pubkeyHex:   "2d46a705d4fe5d8b5a1f4e9ef46d9e06467450eb357b6d39faa000995314e871",
+			extendedHex: "b9d1aec540bf6a9c0e1b325ab87d4fbe66b1df48986dde3cb62e66e136eba107",
+		},
+		{
+			pubkeyHex:   "6764c3767f16ec8faecc62f9f76735f76b11d7556aeb61066aeaeaad4fc9042f",
+			extendedHex: "3a5c68fb94b023488fb5940e07d1005e7c18328e7a84f673ccd536c07560a57b",
+		},
+		{
+			pubkeyHex:   "c99c6ee5804d4b13a445bc03eaa07a6ef5bcb2fff0f71678dd3bd66b822f8be8",
+			extendedHex: "a9e1ce91deed4136e6e53e143d1c0af106abde9d77c066c78ebbf5d227f9dde0",
+		},
+		{
+			pubkeyHex:   "3009182e1efac085c7eba24a7d9ef28ace98ebafa72211e73a41c935c37e6768",
+			extendedHex: "e55431a4c89d38bd95f8092cdf6e44d164ad5855677aba17ec262abc8c217c86",
+		},
+		{
+			pubkeyHex:   "e7153acd114a7636a207be0b67fa86fee56dd318f2808a81e35dd13d4251b2d0",
+			extendedHex: "ff2b98d257e4d4ff7379e8871441ca7d26e73f78f3f5afcf421d78c9799ba677",
+		},
+		{
+			pubkeyHex:   "6378586744b721c5003976e3e18351c49cd28154c821bc45338892e5efedd197",
+			extendedHex: "3d765fb7bb4e165a3fa6ea00b5b5e22250f3861f0db0099626d9a9020443dda2",
+		},
+		{
+			pubkeyHex:   "5be49aba389b7e3ad6def3ba3c7dbec0a11a3c36fc9d441130ef370b8a8d29c2",
+			extendedHex: "2d61faf38062dc98ae1aaafec05e90a925c9769df5b8b8f7090d9e91b2a11151",
+		},
+		{
+			pubkeyHex:   "f7bc382178d38e1b9a1a995bd8347c1283d8a2e8d150379faa53fd125e903d2b",
+			extendedHex: "544c815da65c3c5994b0ac7d6455578d03a2bc7cf558b788bcdb3430e231635a",
+		},
+		{
+			pubkeyHex:   "c28b5c4b6662eebb3ec358600644849ebeb59d827ed589c161d900ca18715fa8",
+			extendedHex: "a2d64db3c0e0353c257aadf9abc12ac779654d364f348b9f8e429aa7571203db",
+		},
+		{
+			pubkeyHex:   "3a4792e5df9b2416a785739b9cf4e0d68aef600fa756a399cc949dd1fff5033a",
+			extendedHex: "4b54591bd79c30640b700dfb7f20158f692f467b6af70bd8a4e739c14a66c86a",
+		},
+		{
+			pubkeyHex:   "002e70f25e1ceaf35cc14b2c6975a4c777b284a695550541e6f5424b962c19f5",
+			extendedHex: "73987e9342e338eb57a7a9e03bd33144db37c1091e952a10bd243c5bb295c18a",
+		},
+		{
+			pubkeyHex:   "7eb671319f212c9cae0975571b6af109124724ba182937a9066546c92bdeff0c",
+			extendedHex: "49b46da3be0df1d141d2a323d5af82202afa2947a95b9f3df47722337f0d5798",
+		},
+		{
+			pubkeyHex:   "ca093712559c8edd5c51689e2ddcb8641c2960e5d9c8b03a44926bb798a0c8dc",
+			extendedHex: "b9ef9cf0f8e4a3d123db565afafb1102338bfb75498444ac0a25c5ed70d615da",
+		},
+		{
+			pubkeyHex:   "cfea0a08a72777ff3aa7be0d8934587fa4127cd49a1a938232815dc3fd8b23ac",
+			extendedHex: "b4de604b3d712f1ef578195fb0e53c865d41e2dfe425202c6cfe6f10e4404eb5",
+		},
+		{
+			pubkeyHex:   "aa0122ae258d6db21a26a31c0c92d8a0e3fdb46594aed41d561e069687dedcd6",
+			extendedHex: "5247eaec346de1c6cddf0ab04c12cd1d85cdb6d3a2fba2a5f9a5fe461abef5eb",
+		},
+		{
+			pubkeyHex:   "b3941734f4d3ba34ccaf03c4c737ac5a1e036eb74309300ce44d73aca24fef08",
+			extendedHex: "535938985c936e3780c61fe29a4121d6cb89a05080b6c2147031ea0c2b5b9829",
+		},
+		{
+			pubkeyHex:   "8c2ee1041a2743b30dcbf413cc9232099b9268f82a5a21a09b63e7aff750882f",
+			extendedHex: "6ad0d4b3a65b522dfad0e9ac814b1fb939bc4910bd780943c72f57f362754cca",
+		},
+		{
+			pubkeyHex:   "4b6829a2a2d46c8f0d0c23db0f735fcf976524bf39ccb623b919dd3b28ad5193",
+			extendedHex: "2e0097d7f92993bc45ba06baf4ca63d64899d86760adc4eb5eeefb4a78561050",
+		},
+		{
+			pubkeyHex:   "9c1407cb6bba11e7b4c1d274d772f074f410d6fe9a1ee7a22cddf379257877d9",
+			extendedHex: "692261c7d6a9a7031c67d033f6d82a68ef3c27bd51a5666e55972238769821cd",
+		},
+		{
+			pubkeyHex:   "638c42e4997abf8a4a9bffd040e31bd695d590cde8afbd7efd16ffdbae63bf66",
+			extendedHex: "793024c8ce196a2419f761dde8734734af6bd9eb772b30cc78f2cb89598dce97",
+		},
+		{
+			pubkeyHex:   "1fb60d79600de151a1cf8a2334deb5828632cbd91cb5b3d45ae06e08187ae23d",
+			extendedHex: "ff2542cde5bc2562e69471a31cfc3d0c26e2f6ccc1891a633b07a3968e42521c",
+		},
+		{
+			pubkeyHex:   "d2fdbbae4e38a1b734151c3df52540feb2d3ff74edfef2f740e49a5c363406ee",
+			extendedHex: "344c83ba6ff4e38b257077623d298d2f2b52002645021241bc9389f81b29ad12",
+		},
+		{
+			pubkeyHex:   "836c27a6ddfe1a24aba3d6022dff6dfe970f142d8b4ac6afb8efcba5a051942f",
+			extendedHex: "b8af481d33726b3f875268282d621e4c63f891a09f920b8f2f49080f3a507387",
+		},
+		{
+			pubkeyHex:   "46281153ddcdf2e79d459693b6fe318c1969538dd59a750b790bfff6e9481abf",
+			extendedHex: "8eaf534919ab6573ba4e0fbde0e370ae01eae0763335177aa429f61c4295e9d4",
+		},
+		{
+			pubkeyHex:   "d57b789e050bf3db462b79a997dac76aa048d4be05f133c66edee56afd3dbe66",
+			extendedHex: "0c5a294cb2cbb6d9d1c0a1d57d938278f674867f612ed89dcbe4533449f1a131",
+		},
+		{
+			pubkeyHex:   "548d524d03ac22da18ff4201ce8dbee83ad9af54ee4e26791d26ed2ab8f9bfc7",
+			extendedHex: "c6609d9e7d9fd982dec8a166ff4fb6f7d195b413aad2df85f73d555349134f3b",
+		},
+		{
+			pubkeyHex:   "cc920690422e307357f573b87a6e0e65f432c6ec12a604eb718b66ba18897a56",
+			extendedHex: "6f11c466d1c72fccd81e51d9bda03b6e8d6a395e1d931b2a84e392dc9a3efa18",
+		},
+		{
+			pubkeyHex:   "c7fb8a51f5fcd8824fc0875d4eb57ab4917cb97090a6e2288f852f2bb449edd9",
+			extendedHex: "45543fea6eed461016e48598b521f18ff70178afea18032b188deea3e56052fc",
+		},
+		{
+			pubkeyHex:   "c681bb1b829e24b1c52cb890036b89f0029d261c6a15e5b2c684ee7dfe91e746",
+			extendedHex: "263006fe2c6b08f1ab29cdf442472c298e2faf225bbf5c32399d3745cd3904bd",
+		},
+		{
+			pubkeyHex:   "e06411c542312fdd305e17e46be14c63bab5836dc8751da06164b1ae22d4e20f",
+			extendedHex: "901871be7a7ff5aecade2acff869846f3c50de69307ac155f2aa3a74d5472ef2",
+		},
+		{
+			pubkeyHex:   "9c725a2acb80fa712f9781da510e5163b1b30f4e1c064c26b5185e537f0614ea",
+			extendedHex: "02420d49257846eb39fddd196d3171679f6be21d9adac667786b65a6e90f57b1",
+		},
+		{
+			pubkeyHex:   "22792772820feafa85c5cb3fa8f876105251bef08617d389619697f47dff54f2",
+			extendedHex: "a3ad444e7811693687f3925e7c315ae55d08d9f4b0a29876bc2a891ab941c1c3",
+		},
+		{
+			pubkeyHex:   "0587b790121395d0f4f39093d10b4817f58a1e80621a24eea22b3c127d6ac5a2",
+			extendedHex: "86c417c695c64c7becaad0d59ddbb2bca4cb2b409a21253d680aac1a08617095",
+		},
+		{
+			pubkeyHex:   "fa0b5f28399bef0cd87bfe6b8a2b69e9c5506fb4bacd22deba8049615a5db526",
+			extendedHex: "ede0ea240036ff75d075258a053f3ce5d6f77925d358dbe33c06509fc9b12111",
+		},
+		{
+			pubkeyHex:   "62a3274fc0bed109d5057b865c2ba6b6a5a417cb90a3425674102fcd457ede2d",
+			extendedHex: "ff7e46751bb4dcd1e800a8feab7cf6771f42dc0cfed7084c23b8a5d255a6f34e",
+		},
+		{
+			pubkeyHex:   "a6fcd4aecaaaf281563b9b7cd6fbc7b1829654f644f4165942669a2ef632b2bf",
+			extendedHex: "28f136be0eb957a5b36f8ec294399c9f73ad3a3c9bb953ad191758ced554a233",
+		},
+		{
+			pubkeyHex:   "01baa4c06d6676c9b286cda76ed949fd80a408b3309500ba84a5bb7e3dce58e2",
+			extendedHex: "a943d1afa2efce284740e7db21ea02db70b124808be2ff80cbf9b9cb96c7b73e",
+		},
+		{
+			pubkeyHex:   "dd9aff9c006ba514cef8fae665657bc9813fe2715467cf479643ea4c4e365d6d",
+			extendedHex: "68de2f7d49de4004286ce0989a06a686b15d0f463a02ffd448a18914e1ddf713",
+		},
+		{
+			pubkeyHex:   "3df3513d5e539161761ce7992ab9935f649bc934bed0da3c5e1095344b733bb9",
+			extendedHex: "e9c2dd747d7b2482474325943cd850102b8093164678362c7621993a790e2a8a",
+		},
+		{
+			pubkeyHex:   "7680cfb244dc8ef37c671fff176be1a3dad00e5d283f93145d0cbee74cca2df4",
+			extendedHex: "a0fd8c3cca16a130eaa5864cbe8152b7adfbf09e8cf72244b2fc8364c3b20bf4",
+		},
+		{
+			pubkeyHex:   "8a547c38bd6b219ea0d612d4a155eba9c56034a1405dcf4b608de787f37e0fd8",
+			extendedHex: "76bf0dc40fd0a5508c5e091d8bb7eccfa28b331e72c6a0d4ac0e05a3d651850b",
+		},
+		{
+			pubkeyHex:   "dd93901621f58465e9791012afa76908f1e80ad80e52b809dc7fc32bb004f0a8",
+			extendedHex: "09a0b7ecfe8058b1e9ee01c9b523826867ca97a32efad29ac8ceebca67a4ea00",
+		},
+		{
+			pubkeyHex:   "b643010220f1f4ee6c7565f6e1b3dc84c18274ede363ac36b6af3707e69a1542",
+			extendedHex: "233c9ff8de59e5f96c2f91892a71d9d93fa7316319f30d1615f10ac1e01f9285",
+		},
+		{
+			pubkeyHex:   "c2637b2299dfc1fd7e953e39a582bafd19e6e7fff3642978eb092b900dbfea80",
+			extendedHex: "339587ba1c05e2cba44196a4be1fd218b772199e2c61c3c0ff21dcd54b570c43",
+		},
+		{
+			pubkeyHex:   "1f36d3a7e7c468eb000937de138809e381ad2e23414cbbaac49b7f33533ed486",
+			extendedHex: "7e5b0a96051c77237a027a79764c2763487af88121c7774645e97827fb744888",
+		},
+		{
+			pubkeyHex:   "8c142a55f60b2edbe03335b7f90aa2bd63e567048a65d61c70cb28779c5200af",
+			extendedHex: "d3d6d5563b3d81c8c91cf9806bb13b2850fb7c162c610fd2f5b83c464add8182",
+		},
+		{
+			pubkeyHex:   "99e7b98293c9de1f81aff1376485a990014b8b176521b2a68cdbde6300190398",
+			extendedHex: "119cbc01a1d9b9fb4759031d3a70685aebea0f01bc5ee082ce824265fd21b3b4",
+		},
+		{
+			pubkeyHex:   "9753bd38be072b51490290be6207ca4545e3541bdf194e0850ae0a9f9e64b8ba",
+			extendedHex: "1ad3aa759863153606fa6570f0e1290baded4c8c1f2ba0f67c1911bfc8ccd7a0",
+		},
+		{
+			pubkeyHex:   "322703864ceee19b7f17cec2a822f310f0c4da3ff98b0be61a6fd30ac4db649c",
+			extendedHex: "89d9e7a5947e1cde874e4030de278070aae363063cd3592ce5411821474f0816",
+		},
+		{
+			pubkeyHex:   "c1acd01e1e535fad273a8b757d981470f43dd7d95af732901fbba16b6e245761",
+			extendedHex: "57e80445248111150da5e63c706b4abbf3eef2cc508bd0347ff6b81e8c59f5bc",
+		},
+		{
+			pubkeyHex:   "492473559f181bbe78f60215bc6d3a5168435ea2fc0a508372d6f5ca126e9767",
+			extendedHex: "df3965f137cf6f60c56ebd7c8f246281fd6dc92ce23a37e9f846f8452c884e01",
+		},
+		{
+			pubkeyHex:   "afa9d6e0e2fb972ee806beb450c2c0165e58234b0676a4ec0ca19b6e710d7c35",
+			extendedHex: "669a57e69dd2845a5e50ed8e5d8423ac9ae792a43c7738554d6c5e765a7b088a",
+		},
+		{
+			pubkeyHex:   "094de050bdadef3b7dbaeeca29381c667e63e71220970149d97b95db8f4db61b",
+			extendedHex: "0cf5d03530c5e97850d0964c6a394de9cde1e8e498f8c0e173c518242c07f99a",
+		},
+		{
+			pubkeyHex:   "2ce583724bc699ad800b33176a1d983512fe3cb3afa65d99224b23dae223efb7",
+			extendedHex: "e1548fd563c75ae5b5366dbab4cb73c54e7d5e087c9e5453125ff8fbe6c83a5c",
+		},
+		{
+			pubkeyHex:   "8064974b976ff5ef6adaade6196ab69cda6970cd74f7f5899181805f691ad970",
+			extendedHex: "98ae63c47331a4ac433cb2f17230c525982d89d21e2838515a36ec5744ec2d15",
+		},
+		{
+			pubkeyHex:   "384911047de609c6ae8438c745897357989363885cef2381a8a00a090cf04a58",
+			extendedHex: "4692ec3a0a03263620841c108538d584322fdd24d221a74bf1e1f407f83828af",
+		},
+		{
+			pubkeyHex:   "0e1b1ced5ae997ef9c10b72cfc6d8c36d7433c01fc04f4083447f87243282528",
+			extendedHex: "6ee443ab0637702b7340bd4a908b9e2e63df0cc423c409fb320eb3f383118b80",
+		},
+		{
+			pubkeyHex:   "5a7aea70c85c040af6ff3384bcaa63ec45c015b55b44fffa37ab982a00dc57c5",
+			extendedHex: "2df2e20137cefd166c767646ecd2e386d28f405aebe43d739aa55beba04ed407",
+		},
+		{
+			pubkeyHex:   "3e878a3567487f20f7c98ea0488a40b87f1ba99e50bbfe9f00a423f927cbd898",
+			extendedHex: "697c7e60e4bf8c429ba7ac22b11a4b248d7465fc6abe597ec6d1e1c973330688",
+		},
+		{
+			pubkeyHex:   "c0bb08350d8a4bb6bf8745f6440e9bd254653102a81c79d6528da2810da758e4",
+			extendedHex: "396a872ac9147a69b27223bf4ec4198345b26576b3690f233b832395f2598235",
+		},
+		{
+			pubkeyHex:   "6c3026a9284053a4ddb754818f9ae306ffa96eb7003bd03826eeccc9a0cf656e",
+			extendedHex: "bef73da51d3ba9972a33d1afb7d263094b66ab6dbe3988161b08c17f8c69c2d5",
+		},
+		{
+			pubkeyHex:   "f80b7d8f5a80d321af3a42130db199d9edcb8f5a82507d8bfca6d002d65458b6",
+			extendedHex: "aa59c167ea60ee024421bfbd00adbb3cbfc20e16bd3c9b172a6bef4d47ca7f57",
+		},
+		{
+			pubkeyHex:   "bc0ffc24615aa02fafef447f17e7b776489cd2cc909f71e8344e01cad9f1610d",
+			extendedHex: "5c4195cc8dc3518143f06a9c228ae59ec9a6425a8fab89bfc638ad997cf35220",
+		},
+		{
+			pubkeyHex:   "b15fad558737229f8816fcba8fbef805bd420c03e392d118c69bdf01890c4924",
+			extendedHex: "f5810477e37554728837f097e1b170d1d8c95351c7fff8abbbfc624e1a50c1b9",
+		},
+		{
+			pubkeyHex:   "ec8c1f10d8e9da9cf0d57c4a1f2c402771bed7970109f3cf21ad32111f1f198f",
+			extendedHex: "a697e0a3f09827b0cf3a4ffb6386388feda80d30ffffcbd54443dafcba162b28",
+		},
+		{
+			pubkeyHex:   "a989647bf0d70fdb7533b8c303a2a07f5e42e26a45ffc4e48cff5ba88643a201",
+			extendedHex: "450fd73e636f94d0d232600dd39031386b0e2ecde4105124fc451341da9803db",
+		},
+		{
+			pubkeyHex:   "7159971b03c365480d91d625a0fadc8e3a632c518acf0dbec87dd659da70e168",
+			extendedHex: "377bc43c038ac46cf6565aa0a6d6bf39968c0c1142755dba3141eeebf0acdf5d",
+		},
+		{
+			pubkeyHex:   "e39089a64fedac4b2c25e36312b33f79d02bf75a883f450f910915b8560a3b06",
+			extendedHex: "77efa7db1be020e77596f550de45626824a8268095d56a0991696b211cb329cc",
+		},
+		{
+			pubkeyHex:   "2056b3c6347611bb0929dad00ec932a4d9bec0f06b2d57f17e01ffa1528a719e",
+			extendedHex: "b6072c2be2ce928e8cbbb87e8eb7e06975c0f93b309dd3b6a29edaad2b56f99b",
+		},
+		{
+			pubkeyHex:   "2c026793146e81b889fc741d62e06c341ce263560d57cd46d0376f5b29174489",
+			extendedHex: "8f1f64b67762aa784969e954c196a2c6610addc3604aa3291eb0b80304dfe9ef",
+		},
+		{
+			pubkeyHex:   "be6026d6704379c489fa7749832b58bdb1a9685a5ffb68c438537f2f76e0011f",
+			extendedHex: "0072569a4090a9ad383a205bb092196c9de871c22506e3bb63d6b9d1b2357c96",
+		},
+		{
+			pubkeyHex:   "f4db802d5c6b7d7b53663b03d988b4cd0c7cad6c26612c5307754a93ebdc9710",
+			extendedHex: "f21bc9be4cb28761f6fe1d0a555ad5e9748375a2e9faea25a1df75cc8d273e18",
+		},
+		{
+			pubkeyHex:   "c27d79a564c56b00956a55090481e85fbc837fd5fb5e8311ecb436e300c07e3a",
+			extendedHex: "1b1891e6abec74621501450cd68bb1eeaa5b2fffff4ec441a55d1235ff3a0842",
+		},
+		{
+			pubkeyHex:   "a1e2f93c717cad32af386efa624198973df5a710963dd19d4c3ac40032a3a286",
+			extendedHex: "69c60571e3f9f63d2bfb359386ae3b8cd9e49a2e9127753002866e85c0443573",
+		},
+		{
+			pubkeyHex:   "76920d7b1763474bc94a16433c3c28241a9acdee3ff2b2cb0e6757ba415310aa",
+			extendedHex: "c1b409169f102b696fc7fa1aa9c48631e58e08b5132b6aadf43407627bb1b499",
+		},
+		{
+			pubkeyHex:   "57ac654b29fa227c181fff2121491fcb283af6cbe932c8199c946862c0e90cb2",
+			extendedHex: "a204e8d327ea93b0b1bd74a78ffc370b20cea6455e209f2bc258114baa16d728",
+		},
+		{
+			pubkeyHex:   "88e66cfaef6432b759c50efce885097d1752252b479dac5ed822fa6c85d56427",
+			extendedHex: "6fb84790d3749a5c1088209ee3823848d9c19bf1524215c44031143dd8080d70",
+		},
+		{
+			pubkeyHex:   "c1e55da929c4f8f793696fc77ff4e1c317c34852d98403bfd15dd388ee7df0df",
+			extendedHex: "2f41e76f15c5b480665bd84067e3b543b85ce6de02be9da7a550b5e1ead94d34",
+		},
+		{
+			pubkeyHex:   "29e9ace5aa3c5a572b13f4b62b738a764d90c8c293ccb062ad798acbab7c5ef4",
+			extendedHex: "bce791aba1edc2a66079628fd838799489ab16b0a475ce7fe62e24cc56fe131c",
+		},
+		{
+			pubkeyHex:   "f25b2340689dadacaa9a0ef08aee8447d80b982e8a1ea42cf0500a1b9d85b37d",
+			extendedHex: "f7f53aa117e6772a9abc452b3931b0a99405ac45147e7c550ac9fcf7ffe377b5",
+		},
+		{
+			pubkeyHex:   "0cb6c47fc8478063b33f5aed615a05bcc84d782c497b6cc8e76ec1fa11edbfdb",
+			extendedHex: "7a0b58b03147e7c9be1d98de49ead2ce738d0071b0af8ca03cc92ceb26fc2246",
+		},
+		{
+			pubkeyHex:   "7bd7287d7c4b596fe46fe57a6982c959653487bea843a77dd47d40986200d576",
+			extendedHex: "343084618c58284c64a5ff076f891be64885dc2ac73fa1567f7b39fde6b91542",
+		},
+		{
+			pubkeyHex:   "e4984bf330708152254fb18ecef12d546afd24898a3cf00fba866957b6ee1b82",
+			extendedHex: "c70e88b061656181fbd6ff12aca578fb66de5553c756ea4698a248b177185bc6",
+		},
+		{
+			pubkeyHex:   "cefd6c3cb9754ea632d6aea140af017de5ea12e5184f868936b74d9aa349d603",
+			extendedHex: "4b476502a8a483aadd50667f262f95351901628dd3a2aac1a5a41c4ea03f1647",
+		},
+		{
+			pubkeyHex:   "da5d0f33344ee7f3345204badf183491b9452b84bccc907602c7bad43e5cf43e",
+			extendedHex: "9561b9e61241625e028361494d4fa5cd78df4c7219fa64c8fede6d8421b8904a",
+		},
+		{
+			pubkeyHex:   "d6f0a4f8c770a1274a76fd7ae4e5faf7779249263e1aaecc6f815cf376f5c302",
+			extendedHex: "cd5c55820be10f0d38feb81363ede3716a9168601a0dd1ce3109aab81367d698",
+		},
+		{
+			pubkeyHex:   "b6bf32491d12a41c275d8518fc534d9a0d17aade509e7e8b8409a95c86167307",
+			extendedHex: "4aae534abbd67a9a8f2974154606c0e9be8932e920c7a5e931b46a92859acf82",
+		},
+		{
+			pubkeyHex:   "0f930beaad041f9cefd867bc194027dd651fb3c9bda5944ececdba8a7136b6d3",
+			extendedHex: "521708f8149891b418d0920369569a9d578029c78f8e41c68a0bb68d3ad5df60",
+		},
+		{
+			pubkeyHex:   "49b1fe0f97be74b81e0b047027b3e9f726fa5e90a67dafa877309397291c06c5",
+			extendedHex: "0852e59dfae5ec32cce606c119376597bce5cd4d04879d329f74e3ec66414cd3",
+		},
+		{
+			pubkeyHex:   "4d57647d03f2cfbd4782fcc933e0683b52d35fc8d37283e6c7de522ddfa7e698",
+			extendedHex: "cbeb9ebfbbc49ec81fac3b7b063fecac1bb40ea686d3ffb08f82b291715cd87f",
+		},
+		{
+			pubkeyHex:   "4ea3238c06fc9346c7421ff85bc0244b893860b94bc437378472814d09b2e99f",
+			extendedHex: "a1fbae941adc344031bbdf53385dfdc012311490a4eb5e9a2749a21b27ce917a",
+		},
+		{
+			pubkeyHex:   "0cd3609f5c78b318cb853d189b73b1ee2d00edd4e5fce2812027daa3fcb1fed1",
+			extendedHex: "0c7a7241b16e3c47d41f5abbf205797bd4b63fc425a7120cb2a4bf324e08ae74",
+		},
+		{
+			pubkeyHex:   "d74ab71428e36943c9868f70d3243469babd27988a1666a06f499a5741a52e3e",
+			extendedHex: "65b7c259f3b4547c082b2a7669b2b363668c4d87ac14e80471317b03b34e5216",
+		},
+		{
+			pubkeyHex:   "f6b151998365e7d69bcbce383dd2e8b5bf93b8b72f029ff942588208c1619591",
+			extendedHex: "6ce840ce5dfbca238665c1e6eddb8b045aa85c69b5976fc55ab57e66d3d0a791",
+		},
+		{
+			pubkeyHex:   "207751de234b2bd7ec20bdd8326210c23aa68f04875c94ad7e256a96520f25d6",
+			extendedHex: "fc8f79ab3af317c38bfb88f40fb84422995a0479cfa6b03fa6df7f4e5f2813fb",
+		},
+		{
+			pubkeyHex:   "62291e2873f38c0a234b77d1964205f3f91905c261d3c06f81051a9b0cb787cb",
+			extendedHex: "076d1d767457518e6777cb3bd4df22c8a19eb617e4bbccd1b0bd37522d6597a5",
+		},
+		{
+			pubkeyHex:   "4b060df2d2854036751d00190ee821cb0066d256d4172539fdfa6fbd1cdfe1f9",
+			extendedHex: "59866e927c69e7de5df00dc46c0d2a1ddf799d901128ff040cebb8fd61b95da4",
+		},
+		{
+			pubkeyHex:   "ac8daf73f9c609bb36bce4fdeec1e50be5f22de38c3904fabcf758f0fc180bc7",
+			extendedHex: "7d8dc4e956363b652468a5fecafd7c08d48a2297e93b8edcb38e595fdd5a1fde",
+		},
+		{
+			pubkeyHex:   "fef7b6563fd27f3aab1d659806b26b8f2ec38bc8feefad50288383c001d1c20f",
+			extendedHex: "e6e42547f12df431439d45103d2c5a583248f44554a98a3a433cf8c38b11805d",
+		},
+		{
+			pubkeyHex:   "40a3d6871c76ecc6bb7b28324478733e196cc11d062dd4c9265cf31be5cf5a97",
+			extendedHex: "8c55a3811c241a020b1be202a58d5defbc4c8945d73b132570b47dd7c019ccf0",
+		},
+		{
+			pubkeyHex:   "0cd71e7e562b2b47f4bc8640caf20e69d3a62f10231b4c7a372c9691cff9ac3c",
+			extendedHex: "fb8e4e3de479b3bf1f4f13b4ed5507df1e80bd9250567b9d021b03339d6e7197",
+		},
+		{
+			pubkeyHex:   "40a4e62800a99b7a26e0b507ffb29592e5bdba25284dc473048f24b27d25b40a",
+			extendedHex: "90ae131d29ee4a71cd764ab26f1ca4e6d09a40db98f8692b345c3a0e130dc860",
+		},
+		{
+			pubkeyHex:   "1ddf35193cf52860bfe3e41060a7f44281241c6ae49cd541d24c1aca679b7501",
+			extendedHex: "3b4f50013895c522776ced456329c4e727de03575f6b99ae7d238a9f70862121",
+		},
+		{
+			pubkeyHex:   "014e0fa8ce9d5df262b9a1765725fde354a855de8aef3fc23684e05dd1ba8d34",
+			extendedHex: "3857f57776a3cb68721bcb7f1533a5f9fb416a1dc8824d719399b63a142d24de",
+		},
+		{
+			pubkeyHex:   "09987979b0e98d1d5355df8a8698b8f54d3a037d12745c0a4317fe519c3df9cc",
+			extendedHex: "32a181e2b754aeced214c73ac459c97d99e63317be3eb923344c64a396173bca",
+		},
+		{
+			pubkeyHex:   "51e9e8ec4413e92dbaaba067824c32b018487a8d16412ed310507b4741e18eed",
+			extendedHex: "0356b209156b4993fd5d5630308298429a1b0021c19bedecb7719ac607cfa644",
+		},
+		{
+			pubkeyHex:   "14d91313dfe46e353310e6a4a23ee15d7a4e1f431700a444be8520e6043d08d9",
+			extendedHex: "6f345f4018b5d178d9f61894d9f46ac09ff639483727b0d113943507cee88cfd",
+		},
+		{
+			pubkeyHex:   "0d5af9ace87382acfffb9ab1a34b6e921881aa015d4f6d9c73171b2b0a97600d",
+			extendedHex: "a8dbf36c85bebe6a7b3733e70cd3cd9ed0eb282ca470f344e5fcf9fe959f2e6e",
+		},
+		{
+			pubkeyHex:   "996690caac7328b19d20ed28eb0003d675b1a9ff79055ab530e3bf170eb22a94",
+			extendedHex: "14340d7d935cffce74b8b2f325c9d92ce0238b51807ef2c1512935bb843194ce",
+		},
+		{
+			pubkeyHex:   "ad839c4b4c278c8ebe16ff137a558255a1f74646aa87c6cd99e994c7bb97ce8a",
+			extendedHex: "d4f2da327ffded913b50577be0e583db2b237b5ca74da648e9b985c247073b76",
+		},
+		{
+			pubkeyHex:   "26fc2eeeee983e1300d72362fdff42edf08038e4eee277a6e2dbd1bd8c9d6560",
+			extendedHex: "3468b8269728c2c0bfc2e53b1575415124798bc0f59b60ea2f14967fc0ca19ce",
+		},
+		{
+			pubkeyHex:   "db33cecaf4ee6f0ceba338cc5fabfb7462cd952a9c9007357ff3f0ca8336f8bc",
+			extendedHex: "0bab38f58686d0ff770f770a297971510bc83e2ff2dfead34823d1c4d67f11af",
+		},
+		{
+			pubkeyHex:   "a0ee84b3c646526fb8787d26dcd9b7fe9dc713c8a6c1a4ea640465a9f36a64df",
+			extendedHex: "4d7a638f6759d3ec45339cd1300e1239cca5f0f658ca3cd29bc9bdb32f44faf0",
+		},
+		{
+			pubkeyHex:   "6a702e7899fcf3988e2b6b55654c22e54f43d3fa29de19177bdff5b2295fe27f",
+			extendedHex: "145d5748d6054fb586568e276f6925aef593a5b9c8249ad3dbef510af99b4307",
+		},
+		{
+			pubkeyHex:   "30ce0fd4f1fac8b62d613b8ee4a66deef6eb7094bd8466531050b837460f6971",
+			extendedHex: "f3aa850d593ba7cef01389f7e1916e57617f1d75cd42f64ce8f5f272384b148c",
+		},
+		{
+			pubkeyHex:   "3aa31d4ad7046ad13d83eb11c9a6e90eb8483a374a77a9a7b2a7cc0978fefa76",
+			extendedHex: "2fe0827dc080d9c1e7ec475a78aa7ae3c86d1a35f4c3f25f4a1f7299cacf018a",
+		},
+		{
+			pubkeyHex:   "8562a5a91e763b98014523ebb6e49120979098f89c31df1fde9eb3a49a15b20f",
+			extendedHex: "ae223bf85e2009a9daf5fd8a14685e2e1e625fc88818b2fd437dd7e109a48f59",
+		},
+		{
+			pubkeyHex:   "ccf9c313a47b8dbf7ce42c94b785818bc24134d95b6d22acc53c1ec2be29cf27",
+			extendedHex: "3e79fce6fe5aa14251b6560df4b76e811d7739eec097f27052c4403a283be71d",
+		},
+		{
+			pubkeyHex:   "d1e33cd6f8918618d5fb6d67ad8de939db8beaec4f115551eac64479b739b773",
+			extendedHex: "613fffcbe1bf48bb2d7bfd64fd97790a06025f8f2429edddb9ac145707847ecf",
+		},
+		{
+			pubkeyHex:   "81eaeced34dd44e448d5dafa5715225e4956c90911c964a96ff7aa5b86b969bc",
+			extendedHex: "8f81177495d120a1357380164d677509b167f2958eb8b962b616c3951d426d8c",
+		},
+		{
+			pubkeyHex:   "2bc001a29f8eab1c7377de69957ba365fb5bdaf9c2c220889709af920dfe27d3",
+			extendedHex: "9bcb3010038f366fa4c280eed6e914a23bfc402594d0b83d0e66730a465a565b",
+		},
+		{
+			pubkeyHex:   "6feeb703c05e86c58d9fc5623f1af8657ecd1e75a14d18c4eedb642a8a393d16",
+			extendedHex: "6544628ba67ed0e14854961739c4d467fcf49d6361e39d32ea73dabeae51e6c3",
+		},
+		{
+			pubkeyHex:   "e8ff145a7c26897f2c1639edd333a5412f87752f110079f581ccdc87fcce208c",
+			extendedHex: "d4b5a6e06069c7e012e32119f8eda08ff04a8dfa784e1cf1bced455a4d41d905",
+		},
+		{
+			pubkeyHex:   "80488131dcb2018527908dbf8cdf4b823ef0806dc1d360f4da671004ef7ff74d",
+			extendedHex: "9984a79d9fd4f317768b442161116eef84e2ca49e938642b268fd64312d59a27",
+		},
+		{
+			pubkeyHex:   "d8c4ca60446849a784d1462aa26a3b93073ff6841cb2da3ef52ab9785b00b1fd",
+			extendedHex: "da5ec1562e7de2382d35728312f4eea3608d4dba775c1c108de510e1ce97d059",
+		},
+		{
+			pubkeyHex:   "68645728dfc6b9358dfb426493238ba38f24a2f46a3e89edb47d212549939cb7",
+			extendedHex: "d3253aa7235113dcc1b577d3bb80be34f528398815a653dbdbacbcbdfd5887a1",
+		},
+		{
+			pubkeyHex:   "4e8eb97ba2d1046e1b42e67530a61441e31c84e5e5e448d8e8dbe75d104eaccb",
+			extendedHex: "de94f73e83222aa0e39b559d4fef70387b0815b9b2f6beff5da67262d8f0eb3e",
+		},
+		{
+			pubkeyHex:   "104ff03122ffdf59b22b8c0fe3d8f2ef67d02328e4d5181916d3d2a92f9a0bb7",
+			extendedHex: "1517ccf69c0328327e1cf581f16944ff66bc91c37e1cd68a99525415e00b7c9f",
+		},
+		{
+			pubkeyHex:   "80f23aae7356ae9a2f9f7504495a731214d26f870fb7df68fdc00b233494156f",
+			extendedHex: "7aef046b0a70f84e8d239aa95e192b5a3fffa0fae5090c91273e8996beca9e38",
+		},
+		{
+			pubkeyHex:   "2424b33235955a737ebddbf1c6c59cd8778af74da3bd3e658447666a2ab2f557",
+			extendedHex: "d19e2be8d482950fbdae429618da7a9daedb8c5944dea19cd1b6b274e792231b",
+		},
+		{
+			pubkeyHex:   "0adc839d2b8f099e4341a4763b074c06318d6bcbd1ec558d20a9820c4a426463",
+			extendedHex: "cea5da12a84e5c20011726d9224a9930bec30f9571762dd7ca857b86bd37d056",
+		},
+		{
+			pubkeyHex:   "46c84d53951f1ba23c46a23d5d96bf019c559aa5d2d79e4535cfcdb36f38ce25",
+			extendedHex: "2a913a01a6f7dd78a43cdd5354d1160d9a5f0d824c489a892c80eba798a77567",
+		},
+		{
+			pubkeyHex:   "99bdaaf68555ccdc93d97c3a0fb4c126a1aa8b1202194a1a753401a6cae21055",
+			extendedHex: "1f645efe173577a092f2d847cc966e28ba3b36397fe84c96dfa4724ed4fcfdf9",
+		},
+		{
+			pubkeyHex:   "c540ff78f1e063ad26ffa69febb8818c9f2a325072c566091ad816e40fe39af4",
+			extendedHex: "de7a762262c91ab4beccc0713233cb91163aec43e34de0dbcfad0c431e8a9722",
+		},
+		{
+			pubkeyHex:   "de8b1ff8978cd5e02681521542b7b6c3c2f8f4602065059f83594809d04e3dda",
+			extendedHex: "290601e75207085bff3e016746e55a80310a76dea9ef566c24181079c76da11c",
+		},
+		{
+			pubkeyHex:   "d555994c8a022e52602d2a8bdd01fc1bfa6b9ab6734ff72a1bd5f937de4627f8",
+			extendedHex: "5f6794e874f48c4b362d0a24207374c2d274e28de86351afc6ddb95d8cc2fd62",
+		},
+		{
+			pubkeyHex:   "19db72f703fe6f1b73f21b6ba133ae6b111ae8cc496d3aa32e02411e34c0d8d7",
+			extendedHex: "42f159f43d2d62b8cf8a47d5f1340c5cf070e9860fc60de647c55d50fe9f5607",
+		},
+		{
+			pubkeyHex:   "23a87a258c2a5d1353aa2d5946f9e5749b92f85e3c58e1d177c3b6c3dcac809c",
+			extendedHex: "e5685016f79d5e87d1fecb3e2a0fe64e4875f7accd2f6649d7f6b16317549cb1",
+		},
+		{
+			pubkeyHex:   "43e1738d7d1b5b565f5fc78e81480f7edf9a4dc18f104fc4be95135b98931b17",
+			extendedHex: "650f5b682e45f2d0c5d5e8bcfd9e0cda7d9071b55ecbfaf5e3b59941cd7479f2",
+		},
+		{
+			pubkeyHex:   "a9d644de0804edf62dee613efa2547e510990a9b7a987ebe55ec74c23873a878",
+			extendedHex: "52ad329f88499a4f110e6a6cba1f820012d8db6ccb8f6495ab1e3eb5a24786e1",
+		},
+		{
+			pubkeyHex:   "11f2b5d89a0350d7c8727becf0f4dd19bd90f8c94ff207132ab13282dd9b94e6",
+			extendedHex: "b798a47bb98dc2a8f99deaf64d27638e33a0d504c5d2fbee477a2bc9b89e2838",
+		},
+		{
+			pubkeyHex:   "5e206e3190b3b715d125f1a11fff424fb33e36e534c99ddde2a3517068b7dcc4",
+			extendedHex: "2738e9571c96b2ddf93cb5f4a72b1ea78d3731d9555b830494513c0683c950ca",
+		},
+		{
+			pubkeyHex:   "efc3d65a43d4f10795c7265a76671348f80173e0f507c812f7ae76793b99c529",
+			extendedHex: "cf4434d18ce8167b51f117fe930860143c46e1739a8db1fba73b6b0de830d707",
+		},
+		{
+			pubkeyHex:   "81f00469788aad6631cf75b585ae06d43ec81c20479925a2009afac9687dff60",
+			extendedHex: "c335b5889b36ba4b4175bb0d986807e8eedb6f6b7329b70b922e2ab729c4202a",
+		},
+		{
+			pubkeyHex:   "9ef5ff329b525ee8f5c3ac38e1dba7cb19985617341d356707c67ff273aed02d",
+			extendedHex: "bef9f9e051ba0e24d1fdf72099cf43ecdd250d047fb329855b5372d5c422db9e",
+		},
+		{
+			pubkeyHex:   "3fa1401bd63132cf8b385c0fa65f0715ba1fe6161e41d59f8033ae2b22f63fa1",
+			extendedHex: "8289a1cb3c2dae48879bb8913fafe2d196cc2fdab5f2a77607910efd33eae6df",
+		},
+		{
+			pubkeyHex:   "6559836fd0081fa38a3f8d8408b564e5698b9797cf5e15f7f12a7d2c84511989",
+			extendedHex: "28d405a6687d2ecc90c1c66bf0454d58f3fa38835743075e1db58c658e15a104",
+		},
+		{
+			pubkeyHex:   "8e0882d45f0e4c2fb2839d3be86ff699d4b2242f5b25ac5a3c2f65297c7d2032",
+			extendedHex: "2771fdcf9135a62007adb5f0004d8222f0e42f819c81710aa4dc3ab2042bebf3",
+		},
+		{
+			pubkeyHex:   "1d91dc4dd9bd82646029d13aca1af96830c1d8a0400ddebeb14b00c93501c039",
+			extendedHex: "7792c62e897f32cbc9c4229f0d28f7882ceeae120329a1cd35f76a75ac704e93",
+		},
+		{
+			pubkeyHex:   "09527f9052acbbdd7676cbbd9534780865f04a27aaadad2b7d4f1dac68883cf0",
+			extendedHex: "b934220cde1327f2dc6af67bcb4124bf424d5084ef4da945e4daad1717cd0bb8",
+		},
+		{
+			pubkeyHex:   "2362e1abe73e64cdd2ca7f6c5ea9f467213747dd3f2b7c6e5df9cb21e03307d7",
+			extendedHex: "676b7122b96564358bbaaf77e3a5a4db1767e4f9a50f6ddd1c69df4566755af9",
+		},
+		{
+			pubkeyHex:   "26c2dd2356e9b6c68a415b25f91d18614dc8500c66f346d28489da543ee75a94",
+			extendedHex: "0f4fd7086acd68eb7c9fa2410e2ecf18e34654eb44e979bc03ce436e992d5feb",
+		},
+		{
+			pubkeyHex:   "422dc0a09d6a45a8e0b563eeb6a5ee84b08abd3a8cb34ff93f77ba3b163f4042",
+			extendedHex: "631f1b412ff5a0fccbe53a02b4a3deaa93a0418ed9874df401eb698ef75d7441",
+		},
+		{
+			pubkeyHex:   "ceecdf46f57ef3f36ff30a1a3579b609340282d1b26ab5ddef2f53514e91bab1",
+			extendedHex: "9bc6f981fe98d14a2fc5b01a8134b6d35e123ec9ab8a3f303e0a5abb28150e2e",
+		},
+		{
+			pubkeyHex:   "024a9e6e0d73f28aa6207fb1e02ce86d444d2d46f8211e8aaab54f459db91a5a",
+			extendedHex: "5fb0c1d2c3b30f399102104ea1874099fa83110b3d9c1fcfffb2981c98bf8cdf",
+		},
+		{
+			pubkeyHex:   "5b8e45e269c9ccac4c68e532a72b29346d218f4606f37a14064826a62050e3a8",
+			extendedHex: "c7be46a871b77fc05ce891d24bd6bd54d9775b7ef573c6bc2d92b67f3604c1d1",
+		},
+		{
+			pubkeyHex:   "9a6593a385c266389eef14237874b97bdcd1823c3199311667d4853c2d12aa81",
+			extendedHex: "9f55ee9d94102d2b9c5670f30586cf9823bf205b4d4fe088c323e87c4e10f26f",
+		},
+		{
+			pubkeyHex:   "27377e2811598c3569b92990865d39b72c7a5533e1be30f77330863187c11875",
+			extendedHex: "abd82bc726f2710a8b87e4c1cf5a069f0ae800de614468d3ff35639983020197",
+		},
+		{
+			pubkeyHex:   "7cacfaa135fb7d568b8dce8ea9136498b1b28c6d1020af45d376288d78d411f0",
+			extendedHex: "229fccd49744c0692508af329224553d21561ee6062b2b8a21f080f73da5bd97",
+		},
+		{
+			pubkeyHex:   "52abd90a5542d6496b8dec9567b020f30058e29458d64f2d4f3ad6f3bfc1a5a0",
+			extendedHex: "874e82ced7cf77577b3374087fb08a2300b7f403de628310c26bdb3be869d309",
+		},
+		{
+			pubkeyHex:   "5c8eebe9d12309187afa8d0d5191de3fdb84e5a05485d7cd62e8804ce7fdc0bc",
+			extendedHex: "12b7537643488aa8b9dcc4bae040cd491f8b466163b7988157b0502fb6c9177f",
+		},
+		{
+			pubkeyHex:   "6ca3dd5c7a21a6bf65d6eefbe20a66e9b1d6b64196344be0c075f47aea48e3aa",
+			extendedHex: "5e1d0705ee24675238293b73ab1d98359119d4b328275be2460cc6ee4d19cc88",
+		},
+		{
+			pubkeyHex:   "d7e6cd0d39b4308c2a5ee547c4569c8bb3887e49cedece62d218d7c3c5277797",
+			extendedHex: "793dc4397112dfd9a8f4e061f457eb6d6fbb1d7a58c40bad5f16002c64914186",
+		},
+		{
+			pubkeyHex:   "9cb6de8ba967cca0f0f861c6e20546f8958446595c01c28dae7ba6cfa09d6b14",
+			extendedHex: "ba1a2f7502b58fee3499c20e35fa01bb932e7a7c4a925dc04fbf5d90f33cfb5e",
+		},
+		{
+			pubkeyHex:   "8ef9c7366733a1edcd116238cdbd177d61222d5c3e05b30ef6b85014cbcb6b79",
+			extendedHex: "8fc89664722947164ac9b77086aed319897612068f56ecd57f47029f14671603",
+		},
+		{
+			pubkeyHex:   "7f317a34e4fb7de9f69cb107ffc0e57fd9f5c85b85ccb5319d05cebfc169924a",
+			extendedHex: "4b71c42339c73db7d710cd63f374d478a6c13bdc352cff40e967282268965ba7",
+		},
+		{
+			pubkeyHex:   "15beef8d9687b92918a903b01d594859db4e7128263c8db0cae9d423ff962c1e",
+			extendedHex: "cd75e6323952f6ac88f138f391b69f38c46d70b7eda61f9e431725b6f1d514a5",
+		},
+		{
+			pubkeyHex:   "7a1c04c9af8fc6649833fe81e96f0199fcfe94959256cbe1490075fc5be0904e",
+			extendedHex: "0368270cd979439ae0a9552a5d6c9f959e4247fcf920d9e071464582e79c04b1",
+		},
+		{
+			pubkeyHex:   "c854c583d338615f85f69061e0fa9c9d7c5bbbfe562e8774fef3be556fe8bb63",
+			extendedHex: "061620171d7320f64bee98414ff7200a1f481521d202fb281cab06be73b80402",
+		},
+		{
+			pubkeyHex:   "0fb8af5aba05ad2503edf1cfad5a451da088e7e974772057cd991a4e0601a3eb",
+			extendedHex: "d3cbc20384a4420143fcce2cb763b0c15bec4f3267d1bdad3c34c1ee6b790f5e",
+		},
+		{
+			pubkeyHex:   "9a251cf59e84a9da5630642f9671c732440caa8fcf4c92446a7e5f5ef99da46c",
+			extendedHex: "9b9679086a433f2077f40bcd4c7545fb5cc87e7dbb8bba468d53cb04a74361a0",
+		},
+		{
+			pubkeyHex:   "8c632e357cef00e0911eb566f8cc809136b3f5ac1e82d183e4d645cef89fa155",
+			extendedHex: "5e06b0f4f278fa1ccb5431866e0b35171cdb814e2e82b9189ce01d8d8a1b2408",
+		},
+		{
+			pubkeyHex:   "4aa4c31463475086a5d96b3ff550340567ab3b4a86fa3f01cfe9be18bc4dcb54",
+			extendedHex: "76a2916cfc093f27992e1f07b50f431d61d58e255507e208cd29ea4d3bc56623",
+		},
+		{
+			pubkeyHex:   "1d33d9aadb949346e3c78d065a0f5262374524f4cb97a7390c8cdaede7ca6578",
+			extendedHex: "9ad2f757f499359903031adea6126c577469c4e834a2959e3ac08ee74b13783c",
+		},
+		{
+			pubkeyHex:   "d9217b9a070df20c4d2f0db42ff0bb36bfba9f51b0b6df8fdfe150405dce4934",
+			extendedHex: "65a843c522b4b8ec081a696a0d2dd8dfdfea45db201de7a5889a1446c6dff8c7",
+		},
+		{
+			pubkeyHex:   "b665b2ca8a285e44ba84e785533b56496a5319730dbb95bc14d3bdfece7544dc",
+			extendedHex: "8a804cd13457497b0a29eeca2cecfaa858766ec1d270a0e0c6785b43fd49b824",
+		},
+		{
+			pubkeyHex:   "43b5cbcc21b3404bca97fa9a661940fe64d40f3ca569310e50b1bb0173c4d5ee",
+			extendedHex: "6c12fffb540d536060bb8b96cf635c1b2cbaa4d875a8d2fb0bf79a690363df19",
+		},
+		{
+			pubkeyHex:   "11c58f20562c00dec5bb4456be07cd98186837e9af38d50d45f5e7b6f0f9000d",
+			extendedHex: "cee76b567586f66dadd38c01213bfc1a17d38e96a495efb4c26063dc498ba209",
+		},
+		{
+			pubkeyHex:   "b069a980b51d8e030262db0b30069e660f4a3f6f8075d1790c153ba12b879f8b",
+			extendedHex: "262391b00bdee71d1d827b2cfe50b46c29e265934dc91959bd369aca0cc6444e",
+		},
+		{
+			pubkeyHex:   "75274bfd79bf33eb2f9ab046d34528af9a71811e7e3d55c20eb049c81ac692d8",
+			extendedHex: "cb93c850e36896fe6626e97c53652af6736ec3ba0641c7765d0cca2bad2352de",
+		},
+		{
+			pubkeyHex:   "5cdb6a24d9736a00f197d9707949fedc5405f367744fe8c83b7cff650302b589",
+			extendedHex: "8b4ac03123fab9275dcf340345a1b11fba48ef106d410ba2e0e6f6457037a419",
+		},
+		{
+			pubkeyHex:   "07fdc85f809f95a07b59b084402bf91c512ebbe05c7657d6ba27a9e7e121e3e2",
+			extendedHex: "61182b3def063630e11de648a278032bcb75949f3a24ef5a133da87830ae5c4e",
+		},
+		{
+			pubkeyHex:   "a4188ca634cbb796f9927822e343d7b267e0a609c1a0ffa4dcf3726b9ffcc8a2",
+			extendedHex: "a911e4899fda28fd6337d708d34553ac5e810ee4938f6f7d9d6e521cab069edb",
+		},
+		{
+			pubkeyHex:   "3c128ec5c955ea189a5789df2c892e94193a534a9d5801b8f75df870bc492a69",
+			extendedHex: "59eef5ee9df0f681df5b5c67ead1f06b059a8a843837b67f20cce15779608170",
+		},
+		{
+			pubkeyHex:   "51a4cc7ec4a14a98c0731e9de7f3ce0779123222d95455e940f2014a23729ec8",
+			extendedHex: "105863ccda076af7290d1bf9ec828651dc5811159839044d23f1c3e31a11c5e2",
+		},
+		{
+			pubkeyHex:   "1b901a31acbb7807c3309facdc7d04bc3b5a4aa714e6e346bd1c6ad4634e6534",
+			extendedHex: "01b3c0000b6c6b471c67c6ab3f9c7a500beaea5edb5c8f2b34df91b69ff67f21",
+		},
+		{
+			pubkeyHex:   "d2f2c8d79cfa2e7cb2db80568ba62ca0576741acfbe5e2baa0d9b3c424a7c84d",
+			extendedHex: "7df9d9088022bd1ce6814d6f8051eef27a650ee38e789b184da2691efd27139d",
+		},
+		{
+			pubkeyHex:   "04dcb7644fdfc12d8e34d6e57d7769db939b4a149ed2b81aa51a74ee90babe19",
+			extendedHex: "6cff0ab2dd3b32ba1bd1a78e3661722f3f10003a01ce83e430970557decedb2c",
+		},
+		{
+			pubkeyHex:   "222798c6841eeaa07e7b7e29686942d7c7f9afc38d09360c8e1f52f2b7debd12",
+			extendedHex: "133e3a04ec82aa9b8dbbec18cadbafff446d1270bf7c6f3f97ddd3906dae2468",
+		},
+		{
+			pubkeyHex:   "4f7277c3ef247a0689b486ad965f969c433fc63e95d7310e789c4708418ccabc",
+			extendedHex: "7e0f2c984dd3cffb35458938c95fe92acf2e697aed060b0e3377c7a07e53c494",
+		},
+		{
+			pubkeyHex:   "359b4d6709413243ae2c5409ea02714a9f8961bbbb64a91e81daf01e18c981bf",
+			extendedHex: "eab69af2cb7f113ad6a27035c0399853d10bd0b99291fad37794d100f7530431",
+		},
+		{
+			pubkeyHex:   "6cea3c6a9eb38f60329537170aa4db8dbb869af2040061e53b10c267daf6568c",
+			extendedHex: "da9a97f4fa96bd05dade5e2704a6a633ba4dbe5080a1e831cda888e9d4f86615",
+		},
+		{
+			pubkeyHex:   "3dddecb954ef0209bcf61fd5b46b6c94f2384ef281c48a20ffee74f90788172d",
+			extendedHex: "af9899c31f944617af54712f93d1a2b4944e48867f480d0d1aec61f3b713e32d",
+		},
+		{
+			pubkeyHex:   "9605247462f50bdf7ff57fe966abbefe8b6efa0b65b5116252f0ec723717013f",
+			extendedHex: "fc8f10904d42a74e09310ccf63db31a90f1dab88b278f15e3364a2356810f7e9",
+		},
+		{
+			pubkeyHex:   "a005143c4d299933f866db41d0a0b8c67264f5d4ea840dd243cb10c3526bc077",
+			extendedHex: "928df1fe9404ffa9c1f4a1c8b2d43ab9b81c5615c8330d2dc2074ac66d4d5200",
+		},
+		{
+			pubkeyHex:   "f45ce88065c34a163f8e77b6fb583502ed0eb1f490f63f76065a9d97e214e3a9",
+			extendedHex: "41bd6784270af4154f2f24f118617e2d7f5b7771a409f08b0f2b7bbcb5e3d666",
+		},
+		{
+			pubkeyHex:   "7b40ac30ed02b12ff592a5479c80cf5a7673abfdd4dd38810e40e63275bc2eed",
+			extendedHex: "6c6bf5961d83851c9728801093d9af04e5a693bc6cbad237b9ac4b0ed580a771",
+		},
+		{
+			pubkeyHex:   "9f985005794d3052a63361413a9820d2ce903198d6d5195b3f20a68f146c6d5c",
+			extendedHex: "88bcac53ba5b1c5b44730a24b4cc2cd782298fc70dc9d777b577a2b33b256449",
+		},
+		{
+			pubkeyHex:   "31b8e37d01fd5669de4ebf78889d749bc44ffe997186ace56f1fb3e60b8742d2",
+			extendedHex: "776366b44170efb130a5045597db5675c6c0b56f3def84863c6b6358aa8dcf40",
+		},
+	}
+	for _, test := range tests {
+		pubkeyBytes := HexToBytes(test.pubkeyHex)
+		pubKey := PubKey(pubkeyBytes)
+		want := HexToBytes(test.extendedHex)
+		ecPoint := new(edwards25519.ExtendedGroupElement)
+		HashToEC(pubKey, ecPoint)
+		var got [32]byte
+		ecPoint.ToBytes(&got)
+		if want != got {
+			t.Errorf("%x: want %x, got %x", pubkeyBytes, want, got)
 		}
 	}
 }
@@ -804,17 +1850,16 @@ func TestVerifySignature(t *testing.T) {
 		// 		"026c8d9801f7330aa82426adf5bacf4546d83df0cc12321ede90df8c0d9aa8006acae497177b2eeaf658b813eaf50e1e06f3d1107694beff9b520c65ee624f05",
 		// 	},
 		// },
-		// {
-		// 	name:          "1/17 inputs form block 40646",
-		// 	prefixHashHex:"aeecb4170b276d2ac69a7abca86f82621f56d943c8d4a8900cd56192da8d442d",
-		// 	keyImageHex:   "c9679ba9ca8a6fa87a1352985e46ea3723489d3699ab1af075532f711739b9c5",
-		// 	pubKeys: []string{
-		// 		"6646f168c842275b31ca863f6eac8eed9e5dfc5714d5864efb62f6c340298a30",
-		// 	},
-		// 	ringSignatureElements: []string{
-		// 		"11b4d1bd92e85f38152848cbf100c6f8b15c9de5278e4506bb9131230807d60e658188593715e7980a9d9e188d2114f2a3b71541cfe66fb94413237edf36dc0a",
-		// 	},
-		// },
+		{
+			name:          "1/17 inputs form block 40646",
+			prefixHashHex: "aeecb4170b276d2ac69a7abca86f82621f56d943c8d4a8900cd56192da8d442d",
+			keyImageHex:   "c9679ba9ca8a6fa87a1352985e46ea3723489d3699ab1af075532f711739b9c5",
+			pubKeys: []string{
+				"6646f168c842275b31ca863f6eac8eed9e5dfc5714d5864efb62f6c340298a30",
+			},
+			ringSignature: "11b4d1bd92e85f38152848cbf100c6f8b15c9de5278e4506bb9131230807d60e658188593715e7980a9d9e188d2114f2a3b71541cfe66fb94413237edf36dc0a",
+			verify:        true,
+		},
 		{
 			name:          "from monero/tests/crypto/tests.txt",
 			prefixHashHex: "c70652ca5f06255dc529bc0924491754f5fad28552f4c9cd7e396f1582cecdca",

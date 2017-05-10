@@ -69,16 +69,12 @@ func ParseSignatures(mixinLengths []int, buf *bytes.Buffer) (signatures []RingSi
 
 // hashes a pubkey into an Edwards Curve element
 func HashToEC(pk PubKey, r *edwards25519.ExtendedGroupElement) {
-	var p1 edwards25519.ExtendedGroupElement
+	var p1 edwards25519.ProjectiveGroupElement
 	var p2 edwards25519.CompletedGroupElement
 	h := [32]byte(Keccak256(pk[:]))
-	for !p1.FromBytes(&h) {
-		h[0]++
-	}
+	p1.FromBytes(&h)
 	edwards25519.GeMul8(&p2, &p1)
 	p2.ToExtended(r)
-	var tmp [32]byte
-	r.ToBytes(&tmp)
 }
 
 func HashToScalar(data ...[]byte) (result [32]byte) {
