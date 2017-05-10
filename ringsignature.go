@@ -86,18 +86,27 @@ func HashToScalar(data ...[]byte) (result [32]byte) {
 func VerifySignature(prefixHash Hash, keyImage PubKey, pubKeys []PubKey, ringSignature RingSignature) (result bool) {
 	keyImageGe := new(edwards25519.ExtendedGroupElement)
 	keyImageBytes := [32]byte(keyImage)
-	keyImageGe.FromBytes(&keyImageBytes)
+	if !keyImageGe.FromBytes(&keyImageBytes) {
+		result = false
+		return
+	}
 	var keyImagePre [8]edwards25519.CachedGroupElement
 	edwards25519.GePrecompute(&keyImagePre, keyImageGe)
 	toHash := prefixHash[:]
-	var one, tmpS, sum [32]byte
-	one[0] = 1
+	var tmpS, sum [32]byte
 	for i, pubKey := range pubKeys {
 		signature := ringSignature[i]
+		if !edwards25519.ScValid(&signature.c) || !edwards25519.ScValid(&signature.r) {
+			result = false
+			return
+		}
 		tmpE := new(edwards25519.ExtendedGroupElement)
 		tmpP := new(edwards25519.ProjectiveGroupElement)
 		pubKeyBytes := [32]byte(pubKey)
-		tmpE.FromBytes(&pubKeyBytes)
+		if !tmpE.FromBytes(&pubKeyBytes) {
+			result = false
+			return
+		}
 		var tmpPBytes, tmpEBytes [32]byte
 		edwards25519.GeDoubleScalarMultVartime(tmpP, &signature.c, tmpE, &signature.r)
 
