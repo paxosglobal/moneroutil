@@ -1,19 +1,10 @@
 package moneroutil
 
 import (
-	"bytes"
-	"crypto/rand"
 	"fmt"
-	mathrand "math/rand"
+	"io"
+	"math/rand"
 )
-
-const (
-	PointLength  = 32
-	ScalarLength = 32
-)
-
-type PubKey [PointLength]byte
-type PrivKey [ScalarLength]byte
 
 type RingSignatureElement struct {
 	c [ScalarLength]byte
@@ -22,80 +13,48 @@ type RingSignatureElement struct {
 
 type RingSignature []*RingSignatureElement
 
-func RandomScalar() (result [ScalarLength]byte) {
-	var reduceFrom [ScalarLength * 2]byte
-	tmp := make([]byte, ScalarLength*2)
-	rand.Read(tmp)
-	copy(reduceFrom[:], tmp)
-	ScReduce(&result, &reduceFrom)
-	return
-}
-
-func (p *PrivKey) FromBytes(b [ScalarLength]byte) {
-	*p = b
-}
-
-func (p *PrivKey) ToBytes() (result [ScalarLength]byte) {
-	result = [32]byte(*p)
-	return
-}
-
-func (p *PrivKey) PubKey() (pubKey *PubKey) {
-	secret := p.ToBytes()
-	point := new(ExtendedGroupElement)
-	GeScalarMultBase(point, &secret)
-	pubKeyBytes := new([PointLength]byte)
-	point.ToBytes(pubKeyBytes)
-	pubKey = (*PubKey)(pubKeyBytes)
-	return
-}
-
-func (p *PubKey) ToBytes() (result [PointLength]byte) {
-	result = [PointLength]byte(*p)
-	return
-}
-
-func NewKeyPair() (privKey *PrivKey, pubKey *PubKey) {
-	privKey = new(PrivKey)
-	pubKey = new(PubKey)
-	privKey.FromBytes(RandomScalar())
-	pubKey = privKey.PubKey()
-	return
-}
-
-func (s *RingSignatureElement) Serialize() (result []byte) {
+func (r *RingSignatureElement) Serialize() (result []byte) {
 	result = make([]byte, 2*ScalarLength)
-	copy(result, s.c[:])
-	copy(result[ScalarLength:2*ScalarLength], s.r[:])
+	copy(result[:ScalarLength], r.c[:])
+	copy(result[ScalarLength:2*ScalarLength], r.r[:])
 	return
 }
 
 func (r *RingSignature) Serialize() (result []byte) {
+	result = make([]byte, len(*r)*ScalarLength*2)
 	for i := 0; i < len(*r); i++ {
-		result = append(result, (*r)[i].Serialize()...)
+		copy(result[i*ScalarLength*2:(i+1)*ScalarLength*2], (*r)[i].Serialize())
 	}
 	return
 }
 
-func ParseSignature(buf *bytes.Buffer) (result *RingSignatureElement, err error) {
-	s := new(RingSignatureElement)
-	c := buf.Next(ScalarLength)
-	if len(c) != ScalarLength {
+func ParseSignature(buf io.Reader) (result *RingSignatureElement, err error) {
+	rse := new(RingSignatureElement)
+	c := make([]byte, ScalarLength)
+	n, err := buf.Read(c)
+	if err != nil {
+		return
+	}
+	if n != ScalarLength {
 		err = fmt.Errorf("Not enough bytes for signature c")
 		return
 	}
-	copy(s.c[:], c)
-	r := buf.Next(ScalarLength)
-	if len(r) != ScalarLength {
+	copy(rse.c[:], c)
+	r := make([]byte, ScalarLength)
+	n, err = buf.Read(r)
+	if err != nil {
+		return
+	}
+	if n != ScalarLength {
 		err = fmt.Errorf("Not enough bytes for signature r")
 		return
 	}
-	copy(s.r[:], r)
-	result = s
+	copy(rse.r[:], r)
+	result = rse
 	return
 }
 
-func ParseSignatures(mixinLengths []int, buf *bytes.Buffer) (signatures []RingSignature, err error) {
+func ParseSignatures(mixinLengths []int, buf io.Reader) (signatures []RingSignature, err error) {
 	// mixinLengths is the number of mixins at each input position
 	sigs := make([]RingSignature, len(mixinLengths), len(mixinLengths))
 	for i, nMixin := range mixinLengths {
@@ -111,16 +70,6 @@ func ParseSignatures(mixinLengths []int, buf *bytes.Buffer) (signatures []RingSi
 	return
 }
 
-// hashes a pubkey into an Edwards Curve element
-func HashToEC(pk *PubKey, r *ExtendedGroupElement) {
-	var p1 ProjectiveGroupElement
-	var p2 CompletedGroupElement
-	h := [PointLength]byte(Keccak256(pk[:]))
-	p1.FromBytes(&h)
-	GeMul8(&p2, &p1)
-	p2.ToExtended(r)
-}
-
 func HashToScalar(data ...[]byte) (result [ScalarLength]byte) {
 	result = Keccak256(data...)
 	ScReduce32(&result)
@@ -128,8 +77,7 @@ func HashToScalar(data ...[]byte) (result [ScalarLength]byte) {
 }
 
 func CreateSignature(prefixHash *Hash, mixins []PubKey, privKey *PrivKey) (keyImage PubKey, pubKeys []PubKey, sig RingSignature) {
-	point := new(ExtendedGroupElement)
-	HashToEC(privKey.PubKey(), point)
+	point := privKey.PubKey().HashToEC()
 	privKeyBytes := privKey.ToBytes()
 	keyImagePoint := new(ProjectiveGroupElement)
 	GeScalarMult(keyImagePoint, &privKeyBytes, point)
@@ -144,7 +92,7 @@ func CreateSignature(prefixHash *Hash, mixins []PubKey, privKey *PrivKey) (keyIm
 	GePrecompute(&keyImagePre, keyImageGe)
 	k := RandomScalar()
 	pubKeys = make([]PubKey, len(mixins)+1)
-	privIndex := mathrand.Intn(len(pubKeys))
+	privIndex := rand.Intn(len(pubKeys))
 	pubKeys[privIndex] = *privKey.PubKey()
 	r := make([]*RingSignatureElement, len(pubKeys))
 	var sum [ScalarLength]byte
@@ -157,7 +105,7 @@ func CreateSignature(prefixHash *Hash, mixins []PubKey, privKey *PrivKey) (keyIm
 			GeScalarMultBase(tmpE, &k)
 			tmpE.ToBytes(&tmpEBytes)
 			toHash = append(toHash, tmpEBytes[:]...)
-			HashToEC(privKey.PubKey(), tmpE)
+			tmpE = privKey.PubKey().HashToEC()
 			GeScalarMult(tmpP, &k, tmpE)
 			tmpP.ToBytes(&tmpPBytes)
 			toHash = append(toHash, tmpPBytes[:]...)
@@ -176,7 +124,7 @@ func CreateSignature(prefixHash *Hash, mixins []PubKey, privKey *PrivKey) (keyIm
 			GeDoubleScalarMultVartime(tmpP, &r[i].c, tmpE, &r[i].r)
 			tmpP.ToBytes(&tmpPBytes)
 			toHash = append(toHash, tmpPBytes[:]...)
-			HashToEC(&pubKeys[i], tmpE)
+			tmpE = pubKeys[i].HashToEC()
 			GeDoubleScalarMultPrecompVartime(tmpP, &r[i].r, tmpE, &r[i].c, &keyImagePre)
 			tmpP.ToBytes(&tmpPBytes)
 			toHash = append(toHash, tmpPBytes[:]...)
@@ -220,7 +168,7 @@ func VerifySignature(prefixHash *Hash, keyImage *PubKey, pubKeys []PubKey, ringS
 		GeDoubleScalarMultVartime(tmpP, &rse.c, tmpE, &rse.r)
 		tmpP.ToBytes(&tmpPBytes)
 		toHash = append(toHash, tmpPBytes[:]...)
-		HashToEC(&pubKey, tmpE)
+		tmpE = pubKey.HashToEC()
 		tmpE.ToBytes(&tmpEBytes)
 		GeDoubleScalarMultPrecompVartime(tmpP, &rse.r, tmpE, &rse.c, &keyImagePre)
 		tmpP.ToBytes(&tmpPBytes)

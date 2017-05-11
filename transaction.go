@@ -1,9 +1,8 @@
 package moneroutil
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
+	"io"
 )
 
 const (
@@ -213,7 +212,7 @@ func (t *Transaction) Serialize() (result []byte) {
 	return
 }
 
-func ParseTxInGen(buf *bytes.Buffer) (txIn *txInGen, err error) {
+func ParseTxInGen(buf io.Reader) (txIn *txInGen, err error) {
 	t := new(txInGen)
 	t.height, err = ReadVarInt(buf)
 	if err != nil {
@@ -223,17 +222,17 @@ func ParseTxInGen(buf *bytes.Buffer) (txIn *txInGen, err error) {
 	return
 }
 
-func ParseTxInToScript(buf *bytes.Buffer) (txIn *txInToScript, err error) {
-	err = errors.New("Unimplemented")
+func ParseTxInToScript(buf io.Reader) (txIn *txInToScript, err error) {
+	err = fmt.Errorf("Unimplemented")
 	return
 }
 
-func ParseTxInToScriptHash(buf *bytes.Buffer) (txIn *txInToScriptHash, err error) {
-	err = errors.New("Unimplemented")
+func ParseTxInToScriptHash(buf io.Reader) (txIn *txInToScriptHash, err error) {
+	err = fmt.Errorf("Unimplemented")
 	return
 }
 
-func ParseTxInToKey(buf *bytes.Buffer) (txIn *txInToKey, err error) {
+func ParseTxInToKey(buf io.Reader) (txIn *txInToKey, err error) {
 	t := new(txInToKey)
 	t.amount, err = ReadVarInt(buf)
 	if err != nil {
@@ -250,9 +249,13 @@ func ParseTxInToKey(buf *bytes.Buffer) (txIn *txInToKey, err error) {
 			return
 		}
 	}
-	pubKey := buf.Next(PointLength)
-	if len(pubKey) != PointLength {
-		err = errors.New("Buffer not long enough for public key")
+	pubKey := make([]byte, PointLength)
+	n, err := buf.Read(pubKey)
+	if err != nil {
+		return
+	}
+	if n != PointLength {
+		err = fmt.Errorf("Buffer not long enough for public key")
 		return
 	}
 	copy(t.keyImage[:], pubKey)
@@ -260,39 +263,48 @@ func ParseTxInToKey(buf *bytes.Buffer) (txIn *txInToKey, err error) {
 	return
 }
 
-func ParseTxIn(buf *bytes.Buffer) (txIn TxInSerializer, err error) {
-	marker, err := buf.ReadByte()
+func ParseTxIn(buf io.Reader) (txIn TxInSerializer, err error) {
+	marker := make([]byte, 1)
+	n, err := buf.Read(marker)
+	if n != 1 {
+		err = fmt.Errorf("Buffer not enough for TxIn")
+		return
+	}
 	if err != nil {
 		return
 	}
 	switch {
-	case marker == txInGenMarker:
+	case marker[0] == txInGenMarker:
 		txIn, err = ParseTxInGen(buf)
-	case marker == txInToScriptMarker:
+	case marker[0] == txInToScriptMarker:
 		txIn, err = ParseTxInToScript(buf)
-	case marker == txInToScriptHashMarker:
+	case marker[0] == txInToScriptHashMarker:
 		txIn, err = ParseTxInToScriptHash(buf)
-	case marker == txInToKeyMarker:
+	case marker[0] == txInToKeyMarker:
 		txIn, err = ParseTxInToKey(buf)
 	}
 	return
 }
 
-func ParseTxOutToScript(buf *bytes.Buffer) (txOutTarget *txOutToScript, err error) {
-	err = errors.New("Unimplemented")
+func ParseTxOutToScript(buf io.Reader) (txOutTarget *txOutToScript, err error) {
+	err = fmt.Errorf("Unimplemented")
 	return
 }
 
-func ParseTxOutToScriptHash(buf *bytes.Buffer) (txOutTarget *txOutToScriptHash, err error) {
-	err = errors.New("Unimplemented")
+func ParseTxOutToScriptHash(buf io.Reader) (txOutTarget *txOutToScriptHash, err error) {
+	err = fmt.Errorf("Unimplemented")
 	return
 }
 
-func ParseTxOutToKey(buf *bytes.Buffer) (txOutTarget *txOutToKey, err error) {
+func ParseTxOutToKey(buf io.Reader) (txOutTarget *txOutToKey, err error) {
 	t := new(txOutToKey)
-	pubKey := buf.Next(PointLength)
-	if len(pubKey) != PointLength {
-		err = errors.New("Buffer not long enough for public key")
+	pubKey := make([]byte, PointLength)
+	n, err := buf.Read(pubKey)
+	if err != nil {
+		return
+	}
+	if n != PointLength {
+		err = fmt.Errorf("Buffer not long enough for public key")
 		return
 	}
 	copy(t.key[:], pubKey)
@@ -300,25 +312,30 @@ func ParseTxOutToKey(buf *bytes.Buffer) (txOutTarget *txOutToKey, err error) {
 	return
 }
 
-func ParseTxOut(buf *bytes.Buffer) (txOut *TxOut, err error) {
+func ParseTxOut(buf io.Reader) (txOut *TxOut, err error) {
 	t := new(TxOut)
 	t.amount, err = ReadVarInt(buf)
 	if err != nil {
 		return
 	}
-	marker, err := buf.ReadByte()
+	marker := make([]byte, 1)
+	n, err := buf.Read(marker)
 	if err != nil {
 		return
 	}
+	if n != 1 {
+		err = fmt.Errorf("Buffer not long enough for TxOut")
+		return
+	}
 	switch {
-	case marker == txOutToScriptMarker:
+	case marker[0] == txOutToScriptMarker:
 		t.target, err = ParseTxOutToScript(buf)
-	case marker == txOutToScriptHashMarker:
+	case marker[0] == txOutToScriptHashMarker:
 		t.target, err = ParseTxOutToScriptHash(buf)
-	case marker == txOutToKeyMarker:
+	case marker[0] == txOutToKeyMarker:
 		t.target, err = ParseTxOutToKey(buf)
 	default:
-		err = errors.New("Bad Marker")
+		err = fmt.Errorf("Bad Marker")
 		return
 	}
 	if err != nil {
@@ -328,21 +345,25 @@ func ParseTxOut(buf *bytes.Buffer) (txOut *TxOut, err error) {
 	return
 }
 
-func ParseExtra(buf *bytes.Buffer) (extra []byte, err error) {
+func ParseExtra(buf io.Reader) (extra []byte, err error) {
 	length, err := ReadVarInt(buf)
 	if err != nil {
 		return
 	}
-	e := buf.Next(int(length))
-	if len(e) != int(length) {
-		err = errors.New("Not enough bytes for extra")
+	e := make([]byte, int(length))
+	n, err := buf.Read(e)
+	if err != nil {
+		return
+	}
+	if n != int(length) {
+		err = fmt.Errorf("Not enough bytes for extra")
 		return
 	}
 	extra = e
 	return
 }
 
-func ParseTransaction(buf *bytes.Buffer) (transaction *Transaction, err error) {
+func ParseTransaction(buf io.Reader) (transaction *Transaction, err error) {
 	t := new(Transaction)
 	version, err := ReadVarInt(buf)
 	if err != nil {
@@ -386,10 +407,6 @@ func ParseTransaction(buf *bytes.Buffer) (transaction *Transaction, err error) {
 	}
 	t.signatures, err = ParseSignatures(mixinLengths, buf)
 	if err != nil {
-		return
-	}
-	if buf.Len() != 0 {
-		err = errors.New("Buffer has extra data")
 		return
 	}
 	transaction = t

@@ -1799,10 +1799,10 @@ func TestHashToEC(t *testing.T) {
 	}
 	for _, test := range tests {
 		pubkeyBytes := HexToBytes(test.pubkeyHex)
-		pubKey := PubKey(pubkeyBytes)
+		pubKey := new(PubKey)
+		pubKey.FromBytes(pubkeyBytes)
 		want := HexToBytes(test.extendedHex)
-		ecPoint := new(ExtendedGroupElement)
-		HashToEC(&pubKey, ecPoint)
+		ecPoint := pubKey.HashToEC()
 		var got [32]byte
 		ecPoint.ToBytes(&got)
 		if want != got {

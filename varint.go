@@ -1,21 +1,29 @@
 package moneroutil
 
 import (
-	"bytes"
+	"fmt"
+	"io"
 )
 
-func ReadVarInt(buf *bytes.Buffer) (result uint64, err error) {
-	var b byte
+func ReadVarInt(buf io.Reader) (result uint64, err error) {
+	b := make([]byte, 1)
+	var r uint64
+	var n int
 	for i := 0; ; i++ {
-		b, err = buf.ReadByte()
+		n, err = buf.Read(b)
 		if err != nil {
 			return
 		}
-		result += (uint64(b) & 0x7f) << uint(i*7)
-		if uint64(b)&0x80 == 0 {
+		if n != 1 {
+			err = fmt.Errorf("Buffer ended prematurely for varint")
+			return
+		}
+		r += (uint64(b[0]) & 0x7f) << uint(i*7)
+		if uint64(b[0])&0x80 == 0 {
 			break
 		}
 	}
+	result = r
 	return
 }
 
