@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	mathrand "math/rand"
 
 	"github.com/paxos-bankchain/ed25519/edwards25519"
 )
@@ -29,6 +30,38 @@ func RandomScalar() (result [ScalarLength]byte) {
 	rand.Read(tmp)
 	copy(reduceFrom[:], tmp)
 	edwards25519.ScReduce(&result, &reduceFrom)
+	return
+}
+
+func (p *PrivKey) FromBytes(b [ScalarLength]byte) {
+	*p = b
+}
+
+func (p *PrivKey) ToBytes() (result [ScalarLength]byte) {
+	result = [32]byte(*p)
+	return
+}
+
+func (p *PrivKey) PubKey() (pubKey *PubKey) {
+	secret := p.ToBytes()
+	point := new(edwards25519.ExtendedGroupElement)
+	edwards25519.GeScalarMultBase(point, &secret)
+	pubKeyBytes := new([PointLength]byte)
+	point.ToBytes(pubKeyBytes)
+	pubKey = (*PubKey)(pubKeyBytes)
+	return
+}
+
+func (p *PubKey) ToBytes() (result [PointLength]byte) {
+	result = [PointLength]byte(*p)
+	return
+}
+
+func NewKeyPair() (privKey *PrivKey, pubKey *PubKey) {
+	privKey = new(PrivKey)
+	pubKey = new(PubKey)
+	privKey.FromBytes(RandomScalar())
+	pubKey = privKey.PubKey()
 	return
 }
 
@@ -96,17 +129,29 @@ func HashToScalar(data ...[]byte) (result [ScalarLength]byte) {
 	return
 }
 
-func CreateSignature(prefixHash *Hash, keyImage *PubKey, pubKeys []PubKey, privateKey PrivKey, privIndex int) (result RingSignature) {
+func CreateSignature(prefixHash *Hash, mixins []PubKey, privKey *PrivKey) (keyImage PubKey, pubKeys []PubKey, sig RingSignature) {
+	point := new(edwards25519.ExtendedGroupElement)
+	HashToEC(privKey.PubKey(), point)
+	privKeyBytes := privKey.ToBytes()
+	keyImagePoint := new(edwards25519.ProjectiveGroupElement)
+	edwards25519.GeScalarMult(keyImagePoint, &privKeyBytes, point)
+	var keyImageBytes [PointLength]byte
+	// convert key Image point from Projective to Extended
+	// in order to precompute
+	keyImagePoint.ToBytes(&keyImageBytes)
 	keyImageGe := new(edwards25519.ExtendedGroupElement)
-	keyImageBytes := [PointLength]byte(*keyImage)
 	keyImageGe.FromBytes(&keyImageBytes)
+	keyImage = PubKey(keyImageBytes)
 	var keyImagePre [8]edwards25519.CachedGroupElement
 	edwards25519.GePrecompute(&keyImagePre, keyImageGe)
-	var sum [ScalarLength]byte
 	k := RandomScalar()
-	toHash := prefixHash[:]
+	pubKeys = make([]PubKey, len(mixins)+1)
+	privIndex := mathrand.Intn(len(pubKeys))
+	pubKeys[privIndex] = *privKey.PubKey()
 	r := make([]*RingSignatureElement, len(pubKeys))
-	for i, pubKey := range pubKeys {
+	var sum [ScalarLength]byte
+	toHash := prefixHash[:]
+	for i := 0; i < len(pubKeys); i++ {
 		tmpE := new(edwards25519.ExtendedGroupElement)
 		tmpP := new(edwards25519.ProjectiveGroupElement)
 		var tmpEBytes, tmpPBytes [PointLength]byte
@@ -114,21 +159,26 @@ func CreateSignature(prefixHash *Hash, keyImage *PubKey, pubKeys []PubKey, priva
 			edwards25519.GeScalarMultBase(tmpE, &k)
 			tmpE.ToBytes(&tmpEBytes)
 			toHash = append(toHash, tmpEBytes[:]...)
-			HashToEC(&pubKey, tmpE)
+			HashToEC(privKey.PubKey(), tmpE)
 			edwards25519.GeScalarMult(tmpP, &k, tmpE)
 			tmpP.ToBytes(&tmpPBytes)
 			toHash = append(toHash, tmpPBytes[:]...)
 		} else {
+			if i > privIndex {
+				pubKeys[i] = mixins[i-1]
+			} else {
+				pubKeys[i] = mixins[i]
+			}
 			r[i] = &RingSignatureElement{
 				c: RandomScalar(),
 				r: RandomScalar(),
 			}
-			pubKeyBytes := [PointLength]byte(pubKey)
+			pubKeyBytes := pubKeys[i].ToBytes()
 			tmpE.FromBytes(&pubKeyBytes)
 			edwards25519.GeDoubleScalarMultVartime(tmpP, &r[i].c, tmpE, &r[i].r)
 			tmpP.ToBytes(&tmpPBytes)
 			toHash = append(toHash, tmpPBytes[:]...)
-			HashToEC(&pubKey, tmpE)
+			HashToEC(&pubKeys[i], tmpE)
 			edwards25519.GeDoubleScalarMultPrecompVartime(tmpP, &r[i].r, tmpE, &r[i].c, &keyImagePre)
 			tmpP.ToBytes(&tmpPBytes)
 			toHash = append(toHash, tmpPBytes[:]...)
@@ -138,9 +188,9 @@ func CreateSignature(prefixHash *Hash, keyImage *PubKey, pubKeys []PubKey, priva
 	h := HashToScalar(toHash)
 	r[privIndex] = new(RingSignatureElement)
 	edwards25519.ScSub(&r[privIndex].c, &h, &sum)
-	scalar := [32]byte(privateKey)
+	scalar := privKey.ToBytes()
 	edwards25519.ScMulSub(&r[privIndex].r, &r[privIndex].c, &scalar, &k)
-	result = r
+	sig = r
 	return
 }
 

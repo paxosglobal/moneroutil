@@ -1818,28 +1818,13 @@ func TestCreateSignature(t *testing.T) {
 	numMixins := 10
 	for i := 0; i < numTries; i++ {
 		hash := Hash(RandomScalar())
-		privKeyBytes := RandomScalar()
-		privKey := PrivKey(privKeyBytes)
-		pubKeys := make([]PubKey, numMixins+1)
-		point := new(edwards25519.ExtendedGroupElement)
+		privKey, _ := NewKeyPair()
+		mixins := make([]PubKey, numMixins)
 		for j := 0; j < numMixins; j++ {
-			secret := RandomScalar()
-			edwards25519.GeScalarMultBase(point, &secret)
-			var pub [32]byte
-			point.ToBytes(&pub)
-			pubKeys[j] = PubKey(pub)
+			_, pk := NewKeyPair()
+			mixins[j] = *pk
 		}
-		keyImagePoint := new(edwards25519.ProjectiveGroupElement)
-		edwards25519.GeScalarMultBase(point, &privKeyBytes)
-		var pubKey, keyImageBytes [32]byte
-		point.ToBytes(&pubKey)
-		pubKeys[numMixins] = pubKey
-		pk := PubKey(pubKey)
-		HashToEC(&pk, point)
-		edwards25519.GeScalarMult(keyImagePoint, &privKeyBytes, point)
-		keyImagePoint.ToBytes(&keyImageBytes)
-		keyImage := PubKey(keyImageBytes)
-		sig := CreateSignature(&hash, &keyImage, pubKeys, privKey, numMixins)
+		keyImage, pubKeys, sig := CreateSignature(&hash, mixins, privKey)
 		if !VerifySignature(&hash, &keyImage, pubKeys, sig) {
 			var pubKeyStr string
 			for _, pk := range pubKeys {
