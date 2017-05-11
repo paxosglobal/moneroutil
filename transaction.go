@@ -208,9 +208,7 @@ func (t *TransactionPrefix) OutputSum() (sum uint64) {
 func (t *Transaction) Serialize() (result []byte) {
 	result = t.SerializePrefix()
 	for i := 0; i < len(t.signatures); i++ {
-		for j := 0; j < len(t.signatures[i]); j++ {
-			result = append(result, t.signatures[i][j].Serialize()...)
-		}
+		result = append(result, t.signatures[i].Serialize()...)
 	}
 	return
 }
@@ -252,8 +250,8 @@ func ParseTxInToKey(buf *bytes.Buffer) (txIn *txInToKey, err error) {
 			return
 		}
 	}
-	pubKey := buf.Next(PubKeyLength)
-	if len(pubKey) != PubKeyLength {
+	pubKey := buf.Next(PointLength)
+	if len(pubKey) != PointLength {
 		err = errors.New("Buffer not long enough for public key")
 		return
 	}
@@ -292,8 +290,8 @@ func ParseTxOutToScriptHash(buf *bytes.Buffer) (txOutTarget *txOutToScriptHash, 
 
 func ParseTxOutToKey(buf *bytes.Buffer) (txOutTarget *txOutToKey, err error) {
 	t := new(txOutToKey)
-	pubKey := buf.Next(PubKeyLength)
-	if len(pubKey) != PubKeyLength {
+	pubKey := buf.Next(PointLength)
+	if len(pubKey) != PointLength {
 		err = errors.New("Buffer not long enough for public key")
 		return
 	}

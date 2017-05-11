@@ -2,47 +2,60 @@ package moneroutil
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/paxos-bankchain/ed25519/edwards25519"
 )
 
 const (
-	PubKeyLength = 32
+	PointLength  = 32
+	ScalarLength = 32
 )
 
-type PubKey [PubKeyLength]byte
+type PubKey [PointLength]byte
+type PrivKey [ScalarLength]byte
+
 type RingSignatureElement struct {
-	c [PubKeyLength]byte
-	r [PubKeyLength]byte
+	c [ScalarLength]byte
+	r [ScalarLength]byte
 }
 
 type RingSignature []*RingSignatureElement
 
-func Reverse(orig [32]byte) (result [32]byte) {
-	for i, j := 0, 31; i < j; i, j = i+1, j-1 {
-		result[i], result[j] = orig[j], orig[i]
-	}
+func RandomScalar() (result [ScalarLength]byte) {
+	var reduceFrom [ScalarLength * 2]byte
+	tmp := make([]byte, ScalarLength*2)
+	rand.Read(tmp)
+	copy(reduceFrom[:], tmp)
+	edwards25519.ScReduce(&result, &reduceFrom)
 	return
 }
 
 func (s *RingSignatureElement) Serialize() (result []byte) {
-	result = make([]byte, 64)
+	result = make([]byte, 2*ScalarLength)
 	copy(result, s.c[:])
-	copy(result[32:64], s.r[:])
+	copy(result[ScalarLength:2*ScalarLength], s.r[:])
+	return
+}
+
+func (r *RingSignature) Serialize() (result []byte) {
+	for i := 0; i < len(*r); i++ {
+		result = append(result, (*r)[i].Serialize()...)
+	}
 	return
 }
 
 func ParseSignature(buf *bytes.Buffer) (result *RingSignatureElement, err error) {
 	s := new(RingSignatureElement)
-	c := buf.Next(PubKeyLength)
-	if len(c) != PubKeyLength {
+	c := buf.Next(ScalarLength)
+	if len(c) != ScalarLength {
 		err = fmt.Errorf("Not enough bytes for signature c")
 		return
 	}
 	copy(s.c[:], c)
-	r := buf.Next(PubKeyLength)
-	if len(r) != PubKeyLength {
+	r := buf.Next(ScalarLength)
+	if len(r) != ScalarLength {
 		err = fmt.Errorf("Not enough bytes for signature r")
 		return
 	}
@@ -68,24 +81,72 @@ func ParseSignatures(mixinLengths []int, buf *bytes.Buffer) (signatures []RingSi
 }
 
 // hashes a pubkey into an Edwards Curve element
-func HashToEC(pk PubKey, r *edwards25519.ExtendedGroupElement) {
+func HashToEC(pk *PubKey, r *edwards25519.ExtendedGroupElement) {
 	var p1 edwards25519.ProjectiveGroupElement
 	var p2 edwards25519.CompletedGroupElement
-	h := [32]byte(Keccak256(pk[:]))
+	h := [PointLength]byte(Keccak256(pk[:]))
 	p1.FromBytes(&h)
 	edwards25519.GeMul8(&p2, &p1)
 	p2.ToExtended(r)
 }
 
-func HashToScalar(data ...[]byte) (result [32]byte) {
+func HashToScalar(data ...[]byte) (result [ScalarLength]byte) {
 	result = Keccak256(data...)
 	edwards25519.ScReduce32(&result)
 	return
 }
 
-func VerifySignature(prefixHash Hash, keyImage PubKey, pubKeys []PubKey, ringSignature RingSignature) (result bool) {
+func CreateSignature(prefixHash *Hash, keyImage *PubKey, pubKeys []PubKey, privateKey PrivKey, privIndex int) (result RingSignature) {
 	keyImageGe := new(edwards25519.ExtendedGroupElement)
-	keyImageBytes := [32]byte(keyImage)
+	keyImageBytes := [PointLength]byte(*keyImage)
+	keyImageGe.FromBytes(&keyImageBytes)
+	var keyImagePre [8]edwards25519.CachedGroupElement
+	edwards25519.GePrecompute(&keyImagePre, keyImageGe)
+	var sum [ScalarLength]byte
+	k := RandomScalar()
+	toHash := prefixHash[:]
+	r := make([]*RingSignatureElement, len(pubKeys))
+	for i, pubKey := range pubKeys {
+		tmpE := new(edwards25519.ExtendedGroupElement)
+		tmpP := new(edwards25519.ProjectiveGroupElement)
+		var tmpEBytes, tmpPBytes [PointLength]byte
+		if i == privIndex {
+			edwards25519.GeScalarMultBase(tmpE, &k)
+			tmpE.ToBytes(&tmpEBytes)
+			toHash = append(toHash, tmpEBytes[:]...)
+			HashToEC(&pubKey, tmpE)
+			edwards25519.GeScalarMult(tmpP, &k, tmpE)
+			tmpP.ToBytes(&tmpPBytes)
+			toHash = append(toHash, tmpPBytes[:]...)
+		} else {
+			r[i] = &RingSignatureElement{
+				c: RandomScalar(),
+				r: RandomScalar(),
+			}
+			pubKeyBytes := [PointLength]byte(pubKey)
+			tmpE.FromBytes(&pubKeyBytes)
+			edwards25519.GeDoubleScalarMultVartime(tmpP, &r[i].c, tmpE, &r[i].r)
+			tmpP.ToBytes(&tmpPBytes)
+			toHash = append(toHash, tmpPBytes[:]...)
+			HashToEC(&pubKey, tmpE)
+			edwards25519.GeDoubleScalarMultPrecompVartime(tmpP, &r[i].r, tmpE, &r[i].c, &keyImagePre)
+			tmpP.ToBytes(&tmpPBytes)
+			toHash = append(toHash, tmpPBytes[:]...)
+			edwards25519.ScAdd(&sum, &sum, &r[i].c)
+		}
+	}
+	h := HashToScalar(toHash)
+	r[privIndex] = new(RingSignatureElement)
+	edwards25519.ScSub(&r[privIndex].c, &h, &sum)
+	scalar := [32]byte(privateKey)
+	edwards25519.ScMulSub(&r[privIndex].r, &r[privIndex].c, &scalar, &k)
+	result = r
+	return
+}
+
+func VerifySignature(prefixHash *Hash, keyImage *PubKey, pubKeys []PubKey, ringSignature RingSignature) (result bool) {
+	keyImageGe := new(edwards25519.ExtendedGroupElement)
+	keyImageBytes := [PointLength]byte(*keyImage)
 	if !keyImageGe.FromBytes(&keyImageBytes) {
 		result = false
 		return
@@ -93,31 +154,30 @@ func VerifySignature(prefixHash Hash, keyImage PubKey, pubKeys []PubKey, ringSig
 	var keyImagePre [8]edwards25519.CachedGroupElement
 	edwards25519.GePrecompute(&keyImagePre, keyImageGe)
 	toHash := prefixHash[:]
-	var tmpS, sum [32]byte
+	var tmpS, sum [ScalarLength]byte
 	for i, pubKey := range pubKeys {
-		signature := ringSignature[i]
-		if !edwards25519.ScValid(&signature.c) || !edwards25519.ScValid(&signature.r) {
+		rse := ringSignature[i]
+		if !edwards25519.ScValid(&rse.c) || !edwards25519.ScValid(&rse.r) {
 			result = false
 			return
 		}
 		tmpE := new(edwards25519.ExtendedGroupElement)
 		tmpP := new(edwards25519.ProjectiveGroupElement)
-		pubKeyBytes := [32]byte(pubKey)
+		pubKeyBytes := [PointLength]byte(pubKey)
 		if !tmpE.FromBytes(&pubKeyBytes) {
 			result = false
 			return
 		}
-		var tmpPBytes, tmpEBytes [32]byte
-		edwards25519.GeDoubleScalarMultVartime(tmpP, &signature.c, tmpE, &signature.r)
-
+		var tmpPBytes, tmpEBytes [PointLength]byte
+		edwards25519.GeDoubleScalarMultVartime(tmpP, &rse.c, tmpE, &rse.r)
 		tmpP.ToBytes(&tmpPBytes)
 		toHash = append(toHash, tmpPBytes[:]...)
-		HashToEC(pubKey, tmpE)
+		HashToEC(&pubKey, tmpE)
 		tmpE.ToBytes(&tmpEBytes)
-		edwards25519.GeDoubleScalarMultPrecompVartime(tmpP, &signature.r, tmpE, &signature.c, &keyImagePre)
+		edwards25519.GeDoubleScalarMultPrecompVartime(tmpP, &rse.r, tmpE, &rse.c, &keyImagePre)
 		tmpP.ToBytes(&tmpPBytes)
 		toHash = append(toHash, tmpPBytes[:]...)
-		edwards25519.ScAdd(&sum, &sum, &signature.c)
+		edwards25519.ScAdd(&sum, &sum, &rse.c)
 	}
 	tmpS = HashToScalar(toHash)
 	edwards25519.ScSub(&sum, &tmpS, &sum)
