@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"testing"
-
-	"github.com/paxos-bankchain/ed25519/edwards25519"
 )
 
 func TestHashToScalar(t *testing.T) {
@@ -1803,7 +1801,7 @@ func TestHashToEC(t *testing.T) {
 		pubkeyBytes := HexToBytes(test.pubkeyHex)
 		pubKey := PubKey(pubkeyBytes)
 		want := HexToBytes(test.extendedHex)
-		ecPoint := new(edwards25519.ExtendedGroupElement)
+		ecPoint := new(ExtendedGroupElement)
 		HashToEC(&pubKey, ecPoint)
 		var got [32]byte
 		ecPoint.ToBytes(&got)
