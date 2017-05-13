@@ -78,6 +78,37 @@ type RctSig struct {
 	RctSigPrunable
 }
 
+func (k *Key) ToExtended() (result *ExtendedGroupElement) {
+	result = new(ExtendedGroupElement)
+	result.FromBytes((*[32]byte).k)
+	return
+}
+
+// add two points together
+func (k *Key) Add(k2 *Key) (result *Key) {
+	a := k.ToExtended()
+	b = new(CachedGroupElement)
+	k2.ToExtended().ToCached(b)
+	c := new(CompletedGroupElement)
+	geAdd(c, a, b)
+	tmp := new(ExtendedGroupElement)
+	c.ToExtended(tmp)
+	tmp.ToBytes(result)
+	return
+}
+
+func (k *Key) ScalarMult(a *Key) (result *Key) {
+	tmp := new(ProjectiveGroupElement)
+	GeScalarMult(tmp, a, k.ToExtended())
+	tmp.ToBytes(result)
+	return
+}
+
+// a is a scalar, k2 is a point
+func (k *Key) ScalarMultAdd(a, k2 *Key) (result *Key) {
+
+}
+
 func (k *Key64) Serialize() (result []byte) {
 	for _, key := range k {
 		result = append(result, key[:]...)
@@ -152,6 +183,10 @@ func (r *RctSig) PrunableHash() (result Hash) {
 	}
 	result = Keccak256(r.SerializePrunable())
 	return
+}
+
+func (r *rctSig) VerifyRctSimple() (result bool) {
+
 }
 
 func ParseKey(buf io.Reader) (result Key, err error) {
