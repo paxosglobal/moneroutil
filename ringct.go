@@ -133,6 +133,11 @@ func (r *RctSigBase) SerializeBase() (result []byte) {
 	return
 }
 
+func (r *RctSigBase) BaseHash() (result Hash) {
+	result = Keccak256(r.SerializeBase())
+	return
+}
+
 func (r *RctSig) SerializePrunable() (result []byte) {
 	if r.sigType == RCTTypeNull {
 		return
@@ -143,6 +148,14 @@ func (r *RctSig) SerializePrunable() (result []byte) {
 	for _, mgSig := range r.mgSigs {
 		result = append(result, mgSig.Serialize()...)
 	}
+	return
+}
+
+func (r *RctSig) PrunableHash() (result Hash) {
+	if r.sigType == RCTTypeNull {
+		return
+	}
+	result = Keccak256(r.SerializePrunable())
 	return
 }
 
@@ -202,12 +215,12 @@ func ParseRingCtSignature(buf io.Reader, nInputs, nOutputs, nMixin int) (result 
 		return
 	}
 	r.sigType = uint8(sigType[0])
-	if r.sigType != RCTTypeNull || r.sigType != RCTTypeFull || r.sigType != RCTTypeSimple {
-		err = fmt.Errorf("Bad sigType %d", r.sigType)
-	}
 	if r.sigType == RCTTypeNull {
 		result = r
 		return
+	}
+	if r.sigType != RCTTypeFull || r.sigType != RCTTypeSimple {
+		err = fmt.Errorf("Bad sigType %d", r.sigType)
 	}
 	r.txFee, err = ReadVarInt(buf)
 	if err != nil {

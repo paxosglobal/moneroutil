@@ -236,9 +236,9 @@ func (t *Transaction) GetHash() (result Hash) {
 		// version 2 requires first computing 3 separate hashes
 		// prefix, rctBase and rctPrunable
 		// and then hashing the hashes together to get the final hash
-		prefixHash := Keccak256(t.SerializePrefix())
-		rctBaseHash := Keccak256(t.rctSignature.SerializeBase())
-		rctPrunableHash := Keccak256(t.rctSignature.SerializePrunable())
+		prefixHash := t.PrefixHash()
+		rctBaseHash := t.rctSignature.BaseHash()
+		rctPrunableHash := t.rctSignature.PrunableHash()
 		result = Keccak256(prefixHash[:], rctBaseHash[:], rctPrunableHash[:])
 	}
 	return
@@ -437,13 +437,17 @@ func ParseTransaction(buf io.Reader) (transaction *Transaction, err error) {
 	if err != nil {
 		return
 	}
-	if version == 1 {
+	if t.version == 1 {
 		t.signatures, err = ParseSignatures(mixinLengths, buf)
 		if err != nil {
 			return
 		}
 	} else {
-		t.rctSignature, err = ParseRingCtSignature(buf, int(numInputs), int(numOutputs), mixinLengths[0]-1)
+		var nMixins int
+		if len(mixinLengths) > 0 {
+			nMixins = mixinLengths[0] - 1
+		}
+		t.rctSignature, err = ParseRingCtSignature(buf, int(numInputs), int(numOutputs), nMixins)
 		if err != nil {
 			return
 		}

@@ -93,19 +93,30 @@ func TestCoinbaseTransaction(t *testing.T) {
 				"ee1a068ee5d4bfe3414e89f9ba05b5b1d899060dc609025f03a49ef9a4d9daa3",
 			},
 		},
+		{
+			name:      "block 1302238",
+			txHex:     "029abe4f01ffdebd4f01a3caca99eaea01021804724f0b0938d83473fcb7fbb93a2991ec98139020b2fe8e8dcaf65888d3dd2b0141d60c73bd6cfd6eddd30039279aefba252747167e5e77ad1fd373916d2a273f020800000049259da0dd00",
+			hashHex:   "be30ee0ac38d83c86d84326c64b13eea5b40897a321004d17e589241d49199f7",
+			version:   2,
+			outputSum: 8068686587171,
+			blockNum:  1302238,
+			outputKeys: []string{
+				"1804724f0b0938d83473fcb7fbb93a2991ec98139020b2fe8e8dcaf65888d3dd",
+			},
+		},
 	}
 	for _, test := range tests {
 		serializedTx, _ := hex.DecodeString(test.txHex)
-		expectedHash, _ := hex.DecodeString(test.hashHex)
-		hash := Keccak256(serializedTx)
-		if bytes.Compare(expectedHash, hash[:]) != 0 {
-			t.Errorf("%s: want %x, got %x", test.name, expectedHash, hash)
-		}
 		buffer := new(bytes.Buffer)
 		buffer.Write(serializedTx)
 		transaction, err := ParseTransaction(buffer)
 		if err != nil {
 			t.Errorf("%s: error parsing tx: %s", test.name, err)
+		}
+		wantHash := HexToBytes(test.hashHex)
+		gotHash := transaction.GetHash()
+		if wantHash != gotHash {
+			t.Errorf("%s: want %x, got %x", test.name, wantHash, gotHash)
 		}
 		if test.version != transaction.version {
 			t.Errorf("%s: version: want %d, got %d", test.name, test.version, transaction.version)
