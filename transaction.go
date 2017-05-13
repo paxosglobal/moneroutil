@@ -15,6 +15,8 @@ const (
 	txOutToKeyMarker        = 2
 )
 
+var UnimplementedError = fmt.Errorf("Unimplemented")
+
 type txOutToScript struct {
 	pubKeys []PubKey
 	script  []byte
@@ -76,7 +78,8 @@ type TransactionPrefix struct {
 
 type Transaction struct {
 	TransactionPrefix
-	signatures []RingSignature
+	signatures   []RingSignature
+	rctSignature *RctSig
 }
 
 func (h *Hash) Serialize() (result []byte) {
@@ -90,7 +93,7 @@ func (p *PubKey) Serialize() (result []byte) {
 }
 
 func (t *txOutToScript) TargetSerialize() (result []byte) {
-	result = []byte{txInToScriptMarker}
+	result = []byte{txOutToScriptMarker}
 	for i, pubkey := range t.pubKeys {
 		if i != 0 {
 			result = append(result, byte(txOutToScriptMarker))
@@ -107,7 +110,7 @@ func (t *txOutToScript) String() (result string) {
 }
 
 func (t *txOutToScriptHash) TargetSerialize() (result []byte) {
-	result = append([]byte{txInToScriptHashMarker}, t.hash.Serialize()...)
+	result = append([]byte{txOutToScriptHashMarker}, t.hash.Serialize()...)
 	return
 }
 
@@ -117,7 +120,7 @@ func (t *txOutToScriptHash) String() (result string) {
 }
 
 func (t *txOutToKey) TargetSerialize() (result []byte) {
-	result = append([]byte{txInToKeyMarker}, t.key.Serialize()...)
+	result = append([]byte{txOutToKeyMarker}, t.key.Serialize()...)
 	return
 }
 
@@ -206,8 +209,37 @@ func (t *TransactionPrefix) OutputSum() (sum uint64) {
 
 func (t *Transaction) Serialize() (result []byte) {
 	result = t.SerializePrefix()
-	for i := 0; i < len(t.signatures); i++ {
-		result = append(result, t.signatures[i].Serialize()...)
+	if t.version == 1 {
+		for i := 0; i < len(t.signatures); i++ {
+			result = append(result, t.signatures[i].Serialize()...)
+		}
+	} else {
+		result = append(result, t.rctSignature.SerializeBase()...)
+		result = append(result, t.rctSignature.SerializePrunable()...)
+	}
+	return
+}
+
+func (t *Transaction) SerializeBase() (result []byte) {
+	if t.version == 1 {
+		result = t.Serialize()
+	} else {
+		result = append(t.SerializePrefix(), t.rctSignature.SerializeBase()...)
+	}
+	return
+}
+
+func (t *Transaction) GetHash() (result Hash) {
+	if t.version == 1 {
+		result = Keccak256(t.Serialize())
+	} else {
+		// version 2 requires first computing 3 separate hashes
+		// prefix, rctBase and rctPrunable
+		// and then hashing the hashes together to get the final hash
+		prefixHash := Keccak256(t.SerializePrefix())
+		rctBaseHash := Keccak256(t.rctSignature.SerializeBase())
+		rctPrunableHash := Keccak256(t.rctSignature.SerializePrunable())
+		result = Keccak256(prefixHash[:], rctBaseHash[:], rctPrunableHash[:])
 	}
 	return
 }
@@ -223,12 +255,12 @@ func ParseTxInGen(buf io.Reader) (txIn *txInGen, err error) {
 }
 
 func ParseTxInToScript(buf io.Reader) (txIn *txInToScript, err error) {
-	err = fmt.Errorf("Unimplemented")
+	err = UnimplementedError
 	return
 }
 
 func ParseTxInToScriptHash(buf io.Reader) (txIn *txInToScriptHash, err error) {
-	err = fmt.Errorf("Unimplemented")
+	err = UnimplementedError
 	return
 }
 
@@ -287,12 +319,12 @@ func ParseTxIn(buf io.Reader) (txIn TxInSerializer, err error) {
 }
 
 func ParseTxOutToScript(buf io.Reader) (txOutTarget *txOutToScript, err error) {
-	err = fmt.Errorf("Unimplemented")
+	err = UnimplementedError
 	return
 }
 
 func ParseTxOutToScriptHash(buf io.Reader) (txOutTarget *txOutToScriptHash, err error) {
-	err = fmt.Errorf("Unimplemented")
+	err = UnimplementedError
 	return
 }
 
@@ -405,9 +437,16 @@ func ParseTransaction(buf io.Reader) (transaction *Transaction, err error) {
 	if err != nil {
 		return
 	}
-	t.signatures, err = ParseSignatures(mixinLengths, buf)
-	if err != nil {
-		return
+	if version == 1 {
+		t.signatures, err = ParseSignatures(mixinLengths, buf)
+		if err != nil {
+			return
+		}
+	} else {
+		t.rctSignature, err = ParseRingCtSignature(buf, int(numInputs), int(numOutputs), mixinLengths[0]-1)
+		if err != nil {
+			return
+		}
 	}
 	transaction = t
 	return
