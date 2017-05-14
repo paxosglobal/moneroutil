@@ -1,7 +1,6 @@
 package moneroutil
 
 import (
-	"bytes"
 	"encoding/hex"
 	"testing"
 )
@@ -36,8 +35,8 @@ func TestKeccak256(t *testing.T) {
 	for _, test := range tests {
 		message, _ := hex.DecodeString(test.messageHex)
 		got := Keccak256(message)
-		want := HexToBytes(test.wantHex)
-		if bytes.Compare(want[:], got[:]) != 0 {
+		want := HexToHash(test.wantHex)
+		if want != got {
 			t.Errorf("want %x, got %x", want, got)
 		}
 	}

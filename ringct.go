@@ -9,12 +9,7 @@ const (
 	RCTTypeNull = iota
 	RCTTypeFull
 	RCTTypeSimple
-
-	KeyLength = 32
 )
-
-// Key for Confidential Transactions, can be private or public
-type Key [KeyLength]byte
 
 // V = Vector, M = Matrix
 type KeyV []Key

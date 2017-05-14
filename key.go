@@ -5,66 +5,53 @@ import (
 )
 
 const (
-	PointLength  = 32
-	ScalarLength = 32
+	KeyLength = 32
 )
 
-type PubKey [PointLength]byte
-type PrivKey [ScalarLength]byte
+// Key can be a Scalar or a Point
+type Key [KeyLength]byte
 
-func (p *PrivKey) FromBytes(b [ScalarLength]byte) {
+func (p *Key) FromBytes(b [KeyLength]byte) {
 	*p = b
 }
 
-func (p *PrivKey) ToBytes() (result [ScalarLength]byte) {
-	result = [32]byte(*p)
+func (p *Key) ToBytes() (result [KeyLength]byte) {
+	result = [KeyLength]byte(*p)
 	return
 }
 
-func (p *PrivKey) PubKey() (pubKey *PubKey) {
-	secret := p.ToBytes()
+func (p *Key) PubKey() (pubKey *Key) {
 	point := new(ExtendedGroupElement)
-	GeScalarMultBase(point, &secret)
-	pubKeyBytes := new([PointLength]byte)
-	point.ToBytes(pubKeyBytes)
-	pubKey = (*PubKey)(pubKeyBytes)
-	return
-}
-
-func (p *PubKey) FromBytes(b [PointLength]byte) {
-	*p = b
-}
-
-func (p *PubKey) ToBytes() (result [PointLength]byte) {
-	result = [PointLength]byte(*p)
+	GeScalarMultBase(point, p)
+	pubKey = new(Key)
+	point.ToBytes(pubKey)
 	return
 }
 
 // Creates a point on the Edwards Curve by hashing the key
-func (p *PubKey) HashToEC() (result *ExtendedGroupElement) {
+func (p *Key) HashToEC() (result *ExtendedGroupElement) {
 	result = new(ExtendedGroupElement)
 	var p1 ProjectiveGroupElement
 	var p2 CompletedGroupElement
-	h := [PointLength]byte(Keccak256(p[:]))
+	h := Key(Keccak256(p[:]))
 	p1.FromBytes(&h)
 	GeMul8(&p2, &p1)
 	p2.ToExtended(result)
 	return
 }
 
-func RandomScalar() (result [ScalarLength]byte) {
-	var reduceFrom [ScalarLength * 2]byte
-	tmp := make([]byte, ScalarLength*2)
+func RandomScalar() (result *Key) {
+	result = new(Key)
+	var reduceFrom [KeyLength * 2]byte
+	tmp := make([]byte, KeyLength*2)
 	rand.Read(tmp)
 	copy(reduceFrom[:], tmp)
-	ScReduce(&result, &reduceFrom)
+	ScReduce(result, &reduceFrom)
 	return
 }
 
-func NewKeyPair() (privKey *PrivKey, pubKey *PubKey) {
-	privKey = new(PrivKey)
-	pubKey = new(PubKey)
-	privKey.FromBytes(RandomScalar())
+func NewKeyPair() (privKey *Key, pubKey *Key) {
+	privKey = RandomScalar()
 	pubKey = privKey.PubKey()
 	return
 }

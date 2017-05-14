@@ -18,7 +18,7 @@ const (
 var UnimplementedError = fmt.Errorf("Unimplemented")
 
 type txOutToScript struct {
-	pubKeys []PubKey
+	pubKeys []Key
 	script  []byte
 }
 
@@ -27,7 +27,7 @@ type txOutToScriptHash struct {
 }
 
 type txOutToKey struct {
-	key PubKey
+	key Key
 }
 
 type TxOutTargetSerializer interface {
@@ -55,7 +55,7 @@ type txInToScriptHash struct {
 type txInToKey struct {
 	amount     uint64
 	keyOffsets []uint64
-	keyImage   PubKey
+	keyImage   Key
 }
 
 type TxInSerializer interface {
@@ -87,7 +87,7 @@ func (h *Hash) Serialize() (result []byte) {
 	return
 }
 
-func (p *PubKey) Serialize() (result []byte) {
+func (p *Key) Serialize() (result []byte) {
 	result = p[:]
 	return
 }
@@ -281,12 +281,12 @@ func ParseTxInToKey(buf io.Reader) (txIn *txInToKey, err error) {
 			return
 		}
 	}
-	pubKey := make([]byte, PointLength)
+	pubKey := make([]byte, KeyLength)
 	n, err := buf.Read(pubKey)
 	if err != nil {
 		return
 	}
-	if n != PointLength {
+	if n != KeyLength {
 		err = fmt.Errorf("Buffer not long enough for public key")
 		return
 	}
@@ -330,12 +330,12 @@ func ParseTxOutToScriptHash(buf io.Reader) (txOutTarget *txOutToScriptHash, err 
 
 func ParseTxOutToKey(buf io.Reader) (txOutTarget *txOutToKey, err error) {
 	t := new(txOutToKey)
-	pubKey := make([]byte, PointLength)
+	pubKey := make([]byte, KeyLength)
 	n, err := buf.Read(pubKey)
 	if err != nil {
 		return
 	}
-	if n != PointLength {
+	if n != KeyLength {
 		err = fmt.Errorf("Buffer not long enough for public key")
 		return
 	}

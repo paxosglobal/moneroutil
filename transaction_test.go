@@ -113,7 +113,7 @@ func TestCoinbaseTransaction(t *testing.T) {
 		if err != nil {
 			t.Errorf("%s: error parsing tx: %s", test.name, err)
 		}
-		wantHash := HexToBytes(test.hashHex)
+		wantHash := HexToHash(test.hashHex)
 		gotHash := transaction.GetHash()
 		if wantHash != gotHash {
 			t.Errorf("%s: want %x, got %x", test.name, wantHash, gotHash)
@@ -331,13 +331,13 @@ func TestTransaction(t *testing.T) {
 		if err != nil {
 			t.Errorf("%s: error parsing tx: %s", test.name, err)
 		}
-		wantHash := HexToBytes(test.hashHex)
+		wantHash := HexToHash(test.hashHex)
 		gotHash := transaction.GetHash()
 		if wantHash != gotHash {
 			t.Errorf("%s: want %x, got %x", test.name, wantHash, gotHash)
 		}
 		gotHash = transaction.PrefixHash()
-		wantHash = HexToBytes(test.prefixHashHex)
+		wantHash = HexToHash(test.prefixHashHex)
 		if wantHash != gotHash {
 			t.Errorf("%s: want %x, got %x", test.name, wantHash, gotHash)
 		}

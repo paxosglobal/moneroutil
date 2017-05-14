@@ -759,9 +759,9 @@ func TestHashToScalar(t *testing.T) {
 	}
 	for _, test := range tests {
 		toHash, _ := hex.DecodeString(test.hashHex)
-		want := HexToBytes(test.scalarHex)
+		want := HexToKey(test.scalarHex)
 		got := HashToScalar(toHash)
-		if want != got {
+		if want != *got {
 			t.Errorf("%x, want %x, got %x", toHash, want, got)
 		}
 	}
@@ -1798,12 +1798,12 @@ func TestHashToEC(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		pubkeyBytes := HexToBytes(test.pubkeyHex)
-		pubKey := new(PubKey)
+		pubkeyBytes := HexToKey(test.pubkeyHex)
+		pubKey := new(Key)
 		pubKey.FromBytes(pubkeyBytes)
-		want := HexToBytes(test.extendedHex)
+		want := HexToKey(test.extendedHex)
 		ecPoint := pubKey.HashToEC()
-		var got [32]byte
+		var got Key
 		ecPoint.ToBytes(&got)
 		if want != got {
 			t.Errorf("%x: want %x, got %x", pubkeyBytes, want, got)
@@ -1815,9 +1815,9 @@ func TestCreateSignature(t *testing.T) {
 	numTries := 50
 	numMixins := 10
 	for i := 0; i < numTries; i++ {
-		hash := Hash(RandomScalar())
+		hash := Hash(*RandomScalar())
 		privKey, _ := NewKeyPair()
-		mixins := make([]PubKey, numMixins)
+		mixins := make([]Key, numMixins)
 		for j := 0; j < numMixins; j++ {
 			_, pk := NewKeyPair()
 			mixins[j] = *pk

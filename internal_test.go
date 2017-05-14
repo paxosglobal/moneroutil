@@ -4,7 +4,13 @@ import (
 	"encoding/hex"
 )
 
-func HexToBytes(h string) (result [32]byte) {
+func HexToKey(h string) (result Key) {
+	byteSlice, _ := hex.DecodeString(h)
+	copy(result[:], byteSlice)
+	return
+}
+
+func HexToHash(h string) (result Hash) {
 	byteSlice, _ := hex.DecodeString(h)
 	copy(result[:], byteSlice)
 	return
