@@ -6,25 +6,12 @@ import (
 )
 
 const (
-	txInGenMarker           = 0xff
-	txInToScriptMarker      = 0
-	txInToScriptHashMarker  = 1
-	txInToKeyMarker         = 2
-	txOutToScriptMarker     = 0
-	txOutToScriptHashMarker = 1
-	txOutToKeyMarker        = 2
+	txInGenMarker    = 0xff
+	txInToKeyMarker  = 2
+	txOutToKeyMarker = 2
 )
 
 var UnimplementedError = fmt.Errorf("Unimplemented")
-
-type txOutToScript struct {
-	pubKeys []Key
-	script  []byte
-}
-
-type txOutToScriptHash struct {
-	hash Hash
-}
 
 type txOutToKey struct {
 	key Key
@@ -37,19 +24,6 @@ type TxOutTargetSerializer interface {
 
 type txInGen struct {
 	height uint64
-}
-
-type txInToScript struct {
-	prev    []byte
-	prevOut uint64
-	sigSet  []byte
-}
-
-type txInToScriptHash struct {
-	prev    Hash
-	prevOut uint64
-	script  []byte
-	sigSet  []byte
 }
 
 type txInToKey struct {
@@ -92,33 +66,6 @@ func (p *Key) Serialize() (result []byte) {
 	return
 }
 
-func (t *txOutToScript) TargetSerialize() (result []byte) {
-	result = []byte{txOutToScriptMarker}
-	for i, pubkey := range t.pubKeys {
-		if i != 0 {
-			result = append(result, byte(txOutToScriptMarker))
-		}
-		result = append(result, pubkey.Serialize()...)
-	}
-	result = append(result, t.script...)
-	return
-}
-
-func (t *txOutToScript) String() (result string) {
-	result = fmt.Sprintf("script: %x", t.script)
-	return
-}
-
-func (t *txOutToScriptHash) TargetSerialize() (result []byte) {
-	result = append([]byte{txOutToScriptHashMarker}, t.hash.Serialize()...)
-	return
-}
-
-func (t *txOutToScriptHash) String() (result string) {
-	result = fmt.Sprintf("hash: %x", t.hash)
-	return
-}
-
 func (t *txOutToKey) TargetSerialize() (result []byte) {
 	result = append([]byte{txOutToKeyMarker}, t.key.Serialize()...)
 	return
@@ -135,29 +82,6 @@ func (t *txInGen) TxInSerialize() (result []byte) {
 }
 
 func (t *txInGen) MixinLen() int {
-	return 0
-}
-
-func (t *txInToScript) TxInSerialize() (result []byte) {
-	result = append([]byte{txInToScriptMarker}, t.prev...)
-	result = append(result, Uint64ToBytes(t.prevOut)...)
-	result = append(result, t.sigSet...)
-	return
-}
-
-func (t *txInToScript) MixinLen() int {
-	return 0
-}
-
-func (t *txInToScriptHash) TxInSerialize() (result []byte) {
-	result = append([]byte{txInToScriptHashMarker}, t.prev.Serialize()...)
-	result = append(result, Uint64ToBytes(t.prevOut)...)
-	result = append(result, t.script...)
-	result = append(result, t.sigSet...)
-	return
-}
-
-func (t *txInToScriptHash) MixinLen() int {
 	return 0
 }
 
@@ -254,16 +178,6 @@ func ParseTxInGen(buf io.Reader) (txIn *txInGen, err error) {
 	return
 }
 
-func ParseTxInToScript(buf io.Reader) (txIn *txInToScript, err error) {
-	err = UnimplementedError
-	return
-}
-
-func ParseTxInToScriptHash(buf io.Reader) (txIn *txInToScriptHash, err error) {
-	err = UnimplementedError
-	return
-}
-
 func ParseTxInToKey(buf io.Reader) (txIn *txInToKey, err error) {
 	t := new(txInToKey)
 	t.amount, err = ReadVarInt(buf)
@@ -308,23 +222,9 @@ func ParseTxIn(buf io.Reader) (txIn TxInSerializer, err error) {
 	switch {
 	case marker[0] == txInGenMarker:
 		txIn, err = ParseTxInGen(buf)
-	case marker[0] == txInToScriptMarker:
-		txIn, err = ParseTxInToScript(buf)
-	case marker[0] == txInToScriptHashMarker:
-		txIn, err = ParseTxInToScriptHash(buf)
 	case marker[0] == txInToKeyMarker:
 		txIn, err = ParseTxInToKey(buf)
 	}
-	return
-}
-
-func ParseTxOutToScript(buf io.Reader) (txOutTarget *txOutToScript, err error) {
-	err = UnimplementedError
-	return
-}
-
-func ParseTxOutToScriptHash(buf io.Reader) (txOutTarget *txOutToScriptHash, err error) {
-	err = UnimplementedError
 	return
 }
 
@@ -360,10 +260,6 @@ func ParseTxOut(buf io.Reader) (txOut *TxOut, err error) {
 		return
 	}
 	switch {
-	case marker[0] == txOutToScriptMarker:
-		t.target, err = ParseTxOutToScript(buf)
-	case marker[0] == txOutToScriptHashMarker:
-		t.target, err = ParseTxOutToScriptHash(buf)
 	case marker[0] == txOutToKeyMarker:
 		t.target, err = ParseTxOutToKey(buf)
 	default:
