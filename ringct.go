@@ -80,33 +80,70 @@ type RctSig struct {
 
 func (k *Key) ToExtended() (result *ExtendedGroupElement) {
 	result = new(ExtendedGroupElement)
-	result.FromBytes((*[32]byte).k)
+	result.FromBytes(k)
+	return
+}
+
+func identity() (result *Key) {
+	result = new(Key)
+	result[0] = 1
+	return
+}
+
+// convert a uint64 to a scalar
+func d2h(val uint64) (result *Key) {
+	result = new(Key)
+	for i := 0; val > 0; i++ {
+		result[i] = byte(val & 0xFF)
+		val /= 256
+	}
+	return
+}
+
+// multiply a scalar by H (second curve point of Pedersen Commitment)
+func ScalarMultH(scalar *Key) (result *Key) {
+	h := new(ExtendedGroupElement)
+	h.FromBytes(&H)
+	resultPoint := new(ProjectiveGroupElement)
+	GeScalarMult(resultPoint, scalar, h)
+	result = new(Key)
+	resultPoint.ToBytes(result)
 	return
 }
 
 // add two points together
-func (k *Key) Add(k2 *Key) (result *Key) {
-	a := k.ToExtended()
-	b = new(CachedGroupElement)
+func AddKeys(sum, k1, k2 *Key) {
+	a := k1.ToExtended()
+	b := new(CachedGroupElement)
 	k2.ToExtended().ToCached(b)
 	c := new(CompletedGroupElement)
 	geAdd(c, a, b)
 	tmp := new(ExtendedGroupElement)
 	c.ToExtended(tmp)
-	tmp.ToBytes(result)
+	tmp.ToBytes(sum)
 	return
 }
 
-func (k *Key) ScalarMult(a *Key) (result *Key) {
-	tmp := new(ProjectiveGroupElement)
-	GeScalarMult(tmp, a, k.ToExtended())
-	tmp.ToBytes(result)
+// compute a*G + b*B
+func AddKeys2(result, a, b, B *Key) {
+	BPoint := B.ToExtended()
+	RPoint := new(ProjectiveGroupElement)
+	GeDoubleScalarMultVartime(RPoint, b, BPoint, a)
+	RPoint.ToBytes(result)
 	return
 }
 
-// a is a scalar, k2 is a point
-func (k *Key) ScalarMultAdd(a, k2 *Key) (result *Key) {
-
+// subtract two points together
+func SubKeys(diff, k1, k2 *Key) {
+	a := k1.ToExtended()
+	b := new(CachedGroupElement)
+	k2.ToExtended().ToCached(b)
+	c := new(CompletedGroupElement)
+	geSub(c, a, b)
+	tmp := new(ExtendedGroupElement)
+	c.ToExtended(tmp)
+	tmp.ToBytes(diff)
+	return
 }
 
 func (k *Key64) Serialize() (result []byte) {
@@ -185,8 +222,53 @@ func (r *RctSig) PrunableHash() (result Hash) {
 	return
 }
 
-func (r *rctSig) VerifyRctSimple() (result bool) {
+func verBorromean(b *BoroSig, p1, p2 *Key64) bool {
+	var data []byte
+	tmp, tmp2 := new(Key), new(Key)
+	for i := 0; i < 64; i++ {
+		AddKeys2(tmp, &b.s0[i], &b.ee, &p1[i])
+		tmp3 := HashToScalar(tmp[:])
+		AddKeys2(tmp2, &b.s1[i], tmp3, &p2[i])
+		data = append(data, tmp2[:]...)
+	}
+	computed := HashToScalar(data)
+	return *computed == b.ee
+}
 
+func verRange(c *Key, as RangeSig) bool {
+	var CiH Key64
+	tmp := identity()
+	for i := 0; i < 64; i++ {
+		SubKeys(&CiH[i], &as.ci[i], &H2[i])
+		AddKeys(tmp, tmp, &as.ci[i])
+	}
+	if *c != *tmp {
+		return false
+	}
+	return verBorromean(&as.asig, &as.ci, &CiH)
+}
+
+// Verify a RCTTypeSimple RingCT Signature
+func (r *RctSig) VerifyRctSimple() bool {
+	sumOutPks := identity()
+	for _, ctKey := range r.outPk {
+		AddKeys(sumOutPks, sumOutPks, &ctKey.mask)
+	}
+	txFeeKey := ScalarMultH(d2h(r.txFee))
+	AddKeys(sumOutPks, sumOutPks, txFeeKey)
+	sumPseudoOuts := identity()
+	for _, pseudoOut := range r.pseudoOuts {
+		AddKeys(sumPseudoOuts, sumPseudoOuts, &pseudoOut)
+	}
+	if *sumPseudoOuts != *sumOutPks {
+		return false
+	}
+	for i, ctKey := range r.outPk {
+		if !verRange(&ctKey.mask, r.rangeSigs[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func ParseKey(buf io.Reader) (result Key, err error) {
