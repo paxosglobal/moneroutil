@@ -1,6 +1,6 @@
 // Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE-BSD file.
 
 // Package edwards25519 implements operations in GF(2**255-19) and on an
 // Edwards curve that is isomorphic to curve25519. See

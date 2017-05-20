@@ -1,0 +1,8 @@
+Monero Utilities
+Copyright (c) 2013 Go Authors
+Copyright (c) 2017 Paxos
+
+Portion of the code is Go Author's property, licensed under the BSD-3 license
+Portion of the code is Paxos's property, licensed under the MIT license
+
+const.go and edwards25519.go are licensed under BSD-3 (see LICENSE-BSD), all other files are licensed under MIT (see LICENSE-MIT).
