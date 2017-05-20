@@ -11,19 +11,11 @@ const (
 	RCTTypeSimple
 )
 
-// V = Vector, M = Matrix
-type KeyV []Key
-type KeyM []KeyV
-
 // Confidential Transaction Keys
 type CtKey struct {
 	destination Key
 	mask        Key
 }
-
-// V = Vector, M = Matrix
-type CtKeyV []CtKey
-type CtKeyM []CtKeyV
 
 // Pedersen Commitment is generated from this struct
 // C = aG + bH where a = mask and b = amount
@@ -44,10 +36,10 @@ type BoroSig struct {
 }
 
 // MLSAG (Multilayered Linkable Spontaneous Anonymous Group) Signature
-type MgSig struct {
-	ss KeyM
+type MlsagSig struct {
+	ss [][]Key
 	cc Key
-	ii KeyV
+	ii []Key
 }
 
 // Range Signature
@@ -61,16 +53,16 @@ type RangeSig struct {
 type RctSigBase struct {
 	sigType    uint8
 	message    Key
-	mixRing    CtKeyM
-	pseudoOuts KeyV
+	mixRing    [][]CtKey
+	pseudoOuts []Key
 	ecdhInfo   []ecdhTuple
-	outPk      CtKeyV
+	outPk      []CtKey
 	txFee      uint64
 }
 
 type RctSigPrunable struct {
 	rangeSigs []RangeSig
-	mgSigs    []MgSig
+	mlsagSigs []MlsagSig
 }
 
 type RctSig struct {
@@ -164,7 +156,7 @@ func (r *RangeSig) Serialize() (result []byte) {
 	return
 }
 
-func (m *MgSig) Serialize() (result []byte) {
+func (m *MlsagSig) Serialize() (result []byte) {
 	for i := 0; i < len(m.ss); i++ {
 		for j := 0; j < len(m.ss[i]); j++ {
 			result = append(result, m.ss[i][j][:]...)
@@ -208,8 +200,8 @@ func (r *RctSig) SerializePrunable() (result []byte) {
 	for _, rangeSig := range r.rangeSigs {
 		result = append(result, rangeSig.Serialize()...)
 	}
-	for _, mgSig := range r.mgSigs {
-		result = append(result, mgSig.Serialize()...)
+	for _, mlsagSig := range r.mlsagSigs {
+		result = append(result, mlsagSig.Serialize()...)
 	}
 	return
 }
@@ -271,13 +263,13 @@ func (r *RctSig) VerifyRctSimple() bool {
 	return true
 }
 
-func ParseKey(buf io.Reader) (result Key, err error) {
-	key := make([]byte, KeyLength)
-	if _, err = buf.Read(key); err != nil {
-		return
+func (r *RctSig) VerifyRctFull() bool {
+	for i, ctKey := range r.outPk {
+		if !verRange(&ctKey.mask, r.rangeSigs[i]) {
+			return false
+		}
 	}
-	copy(result[:], key)
-	return
+	return true
 }
 
 func ParseCtKey(buf io.Reader) (result CtKey, err error) {
@@ -373,18 +365,18 @@ func ParseRingCtSignature(buf io.Reader, nInputs, nOutputs, nMixin int) (result 
 			return
 		}
 	}
-	r.mgSigs = make([]MgSig, nMg)
+	r.mlsagSigs = make([]MlsagSig, nMg)
 	for i := 0; i < nMg; i++ {
-		r.mgSigs[i].ss = make([]KeyV, nMixin+1)
+		r.mlsagSigs[i].ss = make([][]Key, nMixin+1)
 		for j := 0; j < nMixin+1; j++ {
-			r.mgSigs[i].ss[j] = make([]Key, nSS)
+			r.mlsagSigs[i].ss[j] = make([]Key, nSS)
 			for k := 0; k < nSS; k++ {
-				if r.mgSigs[i].ss[j][k], err = ParseKey(buf); err != nil {
+				if r.mlsagSigs[i].ss[j][k], err = ParseKey(buf); err != nil {
 					return
 				}
 			}
 		}
-		if r.mgSigs[i].cc, err = ParseKey(buf); err != nil {
+		if r.mlsagSigs[i].cc, err = ParseKey(buf); err != nil {
 			return
 		}
 	}

@@ -13,15 +13,6 @@ const (
 
 var UnimplementedError = fmt.Errorf("Unimplemented")
 
-type txOutToKey struct {
-	key Key
-}
-
-type TxOutTargetSerializer interface {
-	TargetSerialize() []byte
-	String() string
-}
-
 type txInGen struct {
 	height uint64
 }
@@ -39,7 +30,7 @@ type TxInSerializer interface {
 
 type TxOut struct {
 	amount uint64
-	target TxOutTargetSerializer
+	key    Key
 }
 
 type TransactionPrefix struct {
@@ -54,6 +45,7 @@ type Transaction struct {
 	TransactionPrefix
 	signatures   []RingSignature
 	rctSignature *RctSig
+	expanded     bool
 }
 
 func (h *Hash) Serialize() (result []byte) {
@@ -66,12 +58,13 @@ func (p *Key) Serialize() (result []byte) {
 	return
 }
 
-func (t *txOutToKey) TargetSerialize() (result []byte) {
-	result = append([]byte{txOutToKeyMarker}, t.key.Serialize()...)
+func (t *TxOut) Serialize() (result []byte) {
+	result = append(Uint64ToBytes(t.amount), txOutToKeyMarker)
+	result = append(result, t.key[:]...)
 	return
 }
 
-func (t *txOutToKey) String() (result string) {
+func (t *TxOut) String() (result string) {
 	result = fmt.Sprintf("key: %x", t.key)
 	return
 }
@@ -97,11 +90,6 @@ func (t *txInToKey) TxInSerialize() (result []byte) {
 
 func (t *txInToKey) MixinLen() int {
 	return len(t.keyOffsets)
-}
-
-func (t *TxOut) Serialize() (result []byte) {
-	result = append(Uint64ToBytes(t.amount), t.target.TargetSerialize()...)
-	return
 }
 
 func (t *TransactionPrefix) SerializePrefix() (result []byte) {
@@ -151,6 +139,49 @@ func (t *Transaction) SerializeBase() (result []byte) {
 		result = append(t.SerializePrefix(), t.rctSignature.SerializeBase()...)
 	}
 	return
+}
+
+// ExpandTransaction does nothing for version 1 transactions, but for version 2
+// derives all the implied elements of the ring signature
+func (t *Transaction) ExpandTransaction(outputKeys [][]CtKey) {
+	if t.version == 1 {
+		return
+	}
+	r := t.rctSignature
+	if r.sigType == RCTTypeNull {
+		return
+	}
+
+	// fill in the outPk property of the ring signature
+	for i, ctKey := range r.outPk {
+		ctKey.destination = t.vout[i].key
+	}
+
+	r.message = Key(t.PrefixHash())
+	if r.sigType == RCTTypeFull {
+		r.mixRing = make([][]CtKey, len(outputKeys[0]))
+		for i := 0; i < len(outputKeys); i++ {
+			r.mixRing[i] = make([]CtKey, len(outputKeys))
+			for j := 0; j < len(outputKeys[0]); j++ {
+				r.mixRing[j][i] = outputKeys[i][j]
+			}
+		}
+		r.mlsagSigs = make([]MlsagSig, 1)
+		r.mlsagSigs[0].ii = make([]Key, len(t.vin))
+		for i, txIn := range t.vin {
+			txInWithKey, _ := txIn.(*txInToKey)
+			r.mlsagSigs[0].ii[i] = txInWithKey.keyImage
+		}
+	} else if r.sigType == RCTTypeSimple {
+		r.mixRing = outputKeys
+		r.mlsagSigs = make([]MlsagSig, len(t.vin))
+		for i, txIn := range t.vin {
+			txInWithKey, _ := txIn.(*txInToKey)
+			r.mlsagSigs[i].ii = make([]Key, 1)
+			r.mlsagSigs[i].ii[0] = txInWithKey.keyImage
+		}
+	}
+	t.expanded = true
 }
 
 func (t *Transaction) GetHash() (result Hash) {
@@ -228,22 +259,6 @@ func ParseTxIn(buf io.Reader) (txIn TxInSerializer, err error) {
 	return
 }
 
-func ParseTxOutToKey(buf io.Reader) (txOutTarget *txOutToKey, err error) {
-	t := new(txOutToKey)
-	pubKey := make([]byte, KeyLength)
-	n, err := buf.Read(pubKey)
-	if err != nil {
-		return
-	}
-	if n != KeyLength {
-		err = fmt.Errorf("Buffer not long enough for public key")
-		return
-	}
-	copy(t.key[:], pubKey)
-	txOutTarget = t
-	return
-}
-
 func ParseTxOut(buf io.Reader) (txOut *TxOut, err error) {
 	t := new(TxOut)
 	t.amount, err = ReadVarInt(buf)
@@ -261,7 +276,7 @@ func ParseTxOut(buf io.Reader) (txOut *TxOut, err error) {
 	}
 	switch {
 	case marker[0] == txOutToKeyMarker:
-		t.target, err = ParseTxOutToKey(buf)
+		t.key, err = ParseKey(buf)
 	default:
 		err = fmt.Errorf("Bad Marker")
 		return

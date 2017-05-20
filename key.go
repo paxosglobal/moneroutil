@@ -2,6 +2,7 @@ package moneroutil
 
 import (
 	"crypto/rand"
+	"io"
 )
 
 const (
@@ -53,5 +54,14 @@ func RandomScalar() (result *Key) {
 func NewKeyPair() (privKey *Key, pubKey *Key) {
 	privKey = RandomScalar()
 	pubKey = privKey.PubKey()
+	return
+}
+
+func ParseKey(buf io.Reader) (result Key, err error) {
+	key := make([]byte, KeyLength)
+	if _, err = buf.Read(key); err != nil {
+		return
+	}
+	copy(result[:], key)
 	return
 }
