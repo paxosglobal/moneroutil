@@ -133,7 +133,7 @@ func AddKeys2(result, a, b, B *Key) {
 	return
 }
 
-// subtract two points together
+// subtract two points A - B
 func SubKeys(diff, k1, k2 *Key) {
 	a := k1.ToExtended()
 	b := new(CachedGroupElement)

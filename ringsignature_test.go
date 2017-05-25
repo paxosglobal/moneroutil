@@ -1819,8 +1819,7 @@ func TestCreateSignature(t *testing.T) {
 		privKey, _ := NewKeyPair()
 		mixins := make([]Key, numMixins)
 		for j := 0; j < numMixins; j++ {
-			_, pk := NewKeyPair()
-			mixins[j] = *pk
+			mixins[j] = *RandomPubKey()
 		}
 		keyImage, pubKeys, sig := CreateSignature(&hash, mixins, privKey)
 		if !VerifySignature(&hash, &keyImage, pubKeys, sig) {
