@@ -11,12 +11,6 @@ const (
 	RCTTypeSimple
 )
 
-// Confidential Transaction Keys
-type CtKey struct {
-	destination Key
-	mask        Key
-}
-
 // Pedersen Commitment is generated from this struct
 // C = aG + bH where a = mask and b = amount
 // senderPk is the one-time public key for ECDH exchange
@@ -26,6 +20,7 @@ type ecdhTuple struct {
 	senderPk Key
 }
 
+// Range proof commitments
 type Key64 [64]Key
 
 // Borromean Signature
@@ -49,7 +44,13 @@ type RangeSig struct {
 	ci   Key64
 }
 
-// Ring Confidential Signature
+// Confidential Transaction Keys
+type CtKey struct {
+	destination Key
+	mask        Key
+}
+
+// Ring Confidential Signature parts that we have to keep
 type RctSigBase struct {
 	sigType    uint8
 	message    Key
@@ -60,11 +61,13 @@ type RctSigBase struct {
 	txFee      uint64
 }
 
+// Ring Confidential Signature parts that we can just prune later
 type RctSigPrunable struct {
 	rangeSigs []RangeSig
 	mlsagSigs []MlsagSig
 }
 
+// Ring Confidential Signature struct that can verify everything
 type RctSig struct {
 	RctSigBase
 	RctSigPrunable
