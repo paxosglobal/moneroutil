@@ -326,7 +326,7 @@ func ParseRingCtSignature(buf io.Reader, nInputs, nOutputs, nMixin int) (result 
 		result = r
 		return
 	}
-	if r.sigType != RCTTypeFull || r.sigType != RCTTypeSimple {
+	if r.sigType != RCTTypeFull && r.sigType != RCTTypeSimple {
 		err = fmt.Errorf("Bad sigType %d", r.sigType)
 	}
 	r.txFee, err = ReadVarInt(buf)
